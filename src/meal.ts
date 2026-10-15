@@ -130,12 +130,21 @@ const ACTIVITY_FACTOR: Record<ActivityLevel, number> = {
 };
 
 /**
- * Mifflin-St Jeor 公式算每日目标热量区间。
+ * Mifflin-St Jeor 公式算每日目标热量区间（按画像给缺口）。
  *   BMR(男) = 10×体重kg + 6.25×身高cm − 5×年龄 + 5
  *   BMR(女) = 10×体重kg + 6.25×身高cm − 5×年龄 − 161
  *   TDEE = BMR × 活动系数
- *   区间 = [max(BMR, TDEE×0.9), TDEE] —— 下限不低于基础代谢（安全），
- *   减脂/控糖建议取区间下限附近。缺任一输入返回 null。
+ *
+ * 缺口规则（2026-10-15 定）：
+ *   - 减脂画像（takeout）：每日 300–500 kcal 缺口，即 [max(BMR, TDEE−500), TDEE−300]。
+ *     依据：300–500 kcal/天是体重管理中的常用安全缺口（约 7700 kcal ≈ 1kg 脂肪，
+ *     对应每周约 0.3–0.5kg）；下限不低于 BMR 是非医疗监督下的安全红线。
+ *   - 控糖画像（glycemic）：最多 200 kcal 温和缺口，即 [max(BMR, TDEE−200), TDEE]。
+ *     依据：控糖的核心价值是碳水质量与进餐顺序，不是热量缺口；降糖药 + 大缺口
+ *     有低血糖风险，产品绝不能诱导。如需减重目标请咨询医生。
+ *   - 保护性规则（双画像通用）：未成年人（age < 18）或 BMI < 18.5 只给维持区间
+ *     [max(BMR, 0.95×TDEE), TDEE]，不给任何缺口。
+ * 缺任一输入返回 null。
  */
 export function calcTargetKcal(input: {
   height_cm?: number | null;
@@ -143,8 +152,9 @@ export function calcTargetKcal(input: {
   age?: number | null;
   gender?: Gender | null;
   activity_level?: ActivityLevel | null;
-}): { low: number; high: number; bmr: number; tdee: number } | null {
-  const { height_cm, weight_kg, age, gender, activity_level } = input;
+  persona?: Persona | null;
+}): { low: number; high: number; bmr: number; tdee: number; note: string } | null {
+  const { height_cm, weight_kg, age, gender, activity_level, persona } = input;
   if (
     height_cm == null || weight_kg == null || age == null || !gender ||
     height_cm <= 0 || weight_kg <= 0 || age <= 0
@@ -154,9 +164,28 @@ export function calcTargetKcal(input: {
   const bmr = 10 * weight_kg + 6.25 * height_cm - 5 * age + (gender === 'male' ? 5 : -161);
   const factor = ACTIVITY_FACTOR[activity_level || 'light'] || ACTIVITY_FACTOR.light;
   const tdee = bmr * factor;
-  const low = Math.round(Math.max(bmr, tdee * 0.9));
-  const high = Math.round(tdee);
-  return { low, high, bmr: Math.round(bmr), tdee: Math.round(tdee) };
+  const bmi = weight_kg / Math.pow(height_cm / 100, 2);
+
+  let low: number;
+  let high: number;
+  let note: string;
+  if (age < 18 || bmi < 18.5) {
+    // 保护性：未成年人或偏瘦只给维持区间
+    low = Math.round(Math.max(bmr, tdee * 0.95));
+    high = Math.round(tdee);
+    note = '当前按维持热量设定目标，不建议主动制造热量缺口';
+  } else if (persona === 'glycemic') {
+    low = Math.round(Math.max(bmr, tdee - 200));
+    high = Math.round(tdee);
+    note = '控糖目标以维持热量为基准，重点管理升糖负荷与进餐顺序；如需减重请咨询医生';
+  } else {
+    low = Math.round(Math.max(bmr, tdee - 500));
+    high = Math.round(tdee - 300);
+    note = '每日 300–500 kcal 缺口，预计每周减重约 0.3–0.5kg';
+  }
+  // 极端小体型时 low 可能超过 high，收敛为单点
+  if (low > high) low = high;
+  return { low, high, bmr: Math.round(bmr), tdee: Math.round(tdee), note };
 }
 
 // ============================================================

@@ -491,7 +491,7 @@ async function startServer() {
       const activity_level: MEAL.ActivityLevel = ['sedentary', 'light', 'moderate', 'active', 'very_active'].includes(b.activity_level)
         ? b.activity_level : 'light';
 
-      const target = MEAL.calcTargetKcal({ height_cm, weight_kg, age, gender, activity_level });
+      const target = MEAL.calcTargetKcal({ height_cm, weight_kg, age, gender, activity_level, persona });
       const profile = await DB.upsertUserProfile(openid, {
         persona, height_cm, weight_kg, age, gender, activity_level,
         daily_kcal_low: target?.low ?? null,
