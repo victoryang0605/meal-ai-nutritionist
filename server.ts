@@ -731,14 +731,14 @@ async function startServer() {
 
   const PORT = Number(process.env.PORT) || 3000;
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[三餐AI营养师] Server running on http://localhost:${PORT}`);
+    console.log(`[三餐有数] Server running on http://localhost:${PORT}`);
     if (DEEPSEEK_API_KEY()) {
-      console.log(`[三餐AI营养师] DeepSeek: 模型=${DEEPSEEK_CHAT_MODEL()} 端点=${DEEPSEEK_BASE_URL()}`);
+      console.log(`[三餐有数] DeepSeek: 模型=${DEEPSEEK_CHAT_MODEL()} 端点=${DEEPSEEK_BASE_URL()}`);
     } else {
-      console.warn('[三餐AI营养师] DEEPSEEK_API_KEY 未配置，识图将走 Agnes 降级通道');
+      console.warn('[三餐有数] DEEPSEEK_API_KEY 未配置，识图将走 Agnes 降级通道');
     }
     if (!AGNES_API_KEY()) {
-      console.warn('[三餐AI营养师] AGNES_API_KEY 未配置，DeepSeek 失败时无降级通道');
+      console.warn('[三餐有数] AGNES_API_KEY 未配置，DeepSeek 失败时无降级通道');
     }
   });
 }
