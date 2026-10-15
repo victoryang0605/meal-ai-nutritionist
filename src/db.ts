@@ -141,6 +141,70 @@ export async function initDB() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
+    // ============================================================
+    // 三餐 AI 营养师业务表（W2）
+    // ============================================================
+
+    // 用户画像：onboarding 收集，用于计算每日目标热量区间
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS user_profiles (
+        user_id               VARCHAR(64) PRIMARY KEY,
+        persona               ENUM('takeout','glycemic') NOT NULL DEFAULT 'takeout',
+        height_cm             DECIMAL(5,1) DEFAULT NULL,
+        weight_kg             DECIMAL(5,1) DEFAULT NULL,
+        age                   INT DEFAULT NULL,
+        gender                ENUM('male','female') DEFAULT NULL,
+        activity_level        ENUM('sedentary','light','moderate','active','very_active') DEFAULT 'light',
+        daily_kcal_low        INT DEFAULT NULL,
+        daily_kcal_high       INT DEFAULT NULL,
+        disclaimer_acknowledged TINYINT(1) NOT NULL DEFAULT 0,
+        created_at            BIGINT NOT NULL,
+        updated_at            BIGINT NOT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    // 饮食记录：区间存 low/high 两个 INT，便于按日汇总求和
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS diet_logs (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        user_id       VARCHAR(64) NOT NULL,
+        log_date      DATE NOT NULL,
+        meal_type     ENUM('breakfast','lunch','dinner','snack') NOT NULL,
+        image_url     VARCHAR(1024) DEFAULT '',
+        persona       ENUM('takeout','glycemic') NOT NULL DEFAULT 'takeout',
+        dishes_json   MEDIUMTEXT,
+        kcal_low      INT DEFAULT NULL,
+        kcal_high     INT DEFAULT NULL,
+        protein_low   INT DEFAULT NULL,
+        protein_high  INT DEFAULT NULL,
+        carb_low      INT DEFAULT NULL,
+        carb_high     INT DEFAULT NULL,
+        fat_low       INT DEFAULT NULL,
+        fat_high      INT DEFAULT NULL,
+        fiber_low     INT DEFAULT NULL,
+        fiber_high    INT DEFAULT NULL,
+        meal_score    INT DEFAULT NULL,
+        suggestion    TEXT,
+        glycemic_risk VARCHAR(16) DEFAULT NULL,
+        created_at    BIGINT NOT NULL,
+        INDEX idx_diet_user_date (user_id, log_date),
+        INDEX idx_diet_user_meal (user_id, log_date, meal_type)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    // 体重记录：同一天重复记录则覆盖（UNIQUE KEY + upsert）
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS weight_logs (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        user_id    VARCHAR(64) NOT NULL,
+        log_date   DATE NOT NULL,
+        weight_kg  DECIMAL(5,1) NOT NULL,
+        created_at BIGINT NOT NULL,
+        UNIQUE KEY uk_weight_user_date (user_id, log_date),
+        INDEX idx_weight_user_date (user_id, log_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
     // 为开发测试账号预置 demo 订单（仅当环境变量 DEV_USER 配置时）
     if (process.env.DEV_USER) {
       const testOpenid = 'dev_test_' + process.env.DEV_USER;
@@ -549,5 +613,158 @@ export async function cleanupTasks(ttlMs = 10 * 60 * 1000): Promise<number> {
     [Date.now() - ttlMs]
   ) as any;
   return res?.affectedRows || 0;
+}
+
+// ============================================================
+// 三餐 AI 营养师业务操作（W2）
+// ============================================================
+
+export interface UserProfileInput {
+  persona: 'takeout' | 'glycemic';
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  age?: number | null;
+  gender?: 'male' | 'female' | null;
+  activity_level?: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | null;
+  daily_kcal_low?: number | null;
+  daily_kcal_high?: number | null;
+  disclaimer_acknowledged?: boolean;
+}
+
+/** 保存/更新用户画像（upsert） */
+export async function upsertUserProfile(userId: string, input: UserProfileInput) {
+  const now = Date.now();
+  await getPool().execute(
+    `INSERT INTO user_profiles
+       (user_id, persona, height_cm, weight_kg, age, gender, activity_level,
+        daily_kcal_low, daily_kcal_high, disclaimer_acknowledged, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       persona = VALUES(persona), height_cm = VALUES(height_cm), weight_kg = VALUES(weight_kg),
+       age = VALUES(age), gender = VALUES(gender), activity_level = VALUES(activity_level),
+       daily_kcal_low = VALUES(daily_kcal_low), daily_kcal_high = VALUES(daily_kcal_high),
+       disclaimer_acknowledged = VALUES(disclaimer_acknowledged), updated_at = VALUES(updated_at)`,
+    [
+      userId, input.persona,
+      input.height_cm ?? null, input.weight_kg ?? null, input.age ?? null,
+      input.gender ?? null, input.activity_level ?? 'light',
+      input.daily_kcal_low ?? null, input.daily_kcal_high ?? null,
+      input.disclaimer_acknowledged ? 1 : 0, now, now,
+    ]
+  );
+  return getUserProfile(userId);
+}
+
+/** 读取用户画像（无记录返回 null） */
+export async function getUserProfile(userId: string) {
+  const [rows] = await getPool().execute('SELECT * FROM user_profiles WHERE user_id = ?', [userId]) as any;
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    user_id: r.user_id,
+    persona: r.persona,
+    height_cm: r.height_cm != null ? Number(r.height_cm) : null,
+    weight_kg: r.weight_kg != null ? Number(r.weight_kg) : null,
+    age: r.age,
+    gender: r.gender,
+    activity_level: r.activity_level,
+    daily_kcal_low: r.daily_kcal_low,
+    daily_kcal_high: r.daily_kcal_high,
+    disclaimer_acknowledged: r.disclaimer_acknowledged === 1,
+    created_at: Number(r.created_at),
+    updated_at: Number(r.updated_at),
+  };
+}
+
+export interface DietLogInput {
+  log_date: string; // YYYY-MM-DD
+  meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+  persona: 'takeout' | 'glycemic';
+  image_url?: string;
+  dishes: any[];
+  kcal_low: number | null;
+  kcal_high: number | null;
+  protein_low: number | null;
+  protein_high: number | null;
+  carb_low: number | null;
+  carb_high: number | null;
+  fat_low: number | null;
+  fat_high: number | null;
+  fiber_low: number | null;
+  fiber_high: number | null;
+  meal_score: number | null;
+  suggestion: string | null;
+  glycemic_risk: string | null;
+}
+
+/** 插入一条饮食记录 */
+export async function insertDietLog(userId: string, input: DietLogInput): Promise<number> {
+  const [res] = await getPool().execute(
+    `INSERT INTO diet_logs
+       (user_id, log_date, meal_type, image_url, persona, dishes_json,
+        kcal_low, kcal_high, protein_low, protein_high, carb_low, carb_high,
+        fat_low, fat_high, fiber_low, fiber_high, meal_score, suggestion, glycemic_risk, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      userId, input.log_date, input.meal_type, input.image_url || '', input.persona,
+      JSON.stringify(input.dishes || []),
+      input.kcal_low, input.kcal_high,
+      input.protein_low, input.protein_high, input.carb_low, input.carb_high,
+      input.fat_low, input.fat_high, input.fiber_low, input.fiber_high,
+      input.meal_score, input.suggestion, input.glycemic_risk, Date.now(),
+    ]
+  ) as any;
+  return res.insertId;
+}
+
+function fmtDate(v: any): string {
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  return String(v).slice(0, 10);
+}
+
+/** 读取某日全部饮食记录（按创建时间排序） */
+export async function getDietLogsByDate(userId: string, logDate: string) {
+  const [rows] = await getPool().execute(
+    'SELECT * FROM diet_logs WHERE user_id = ? AND log_date = ? ORDER BY created_at ASC',
+    [userId, logDate]
+  ) as any;
+  return rows.map((r: any) => ({
+    id: r.id,
+    log_date: fmtDate(r.log_date),
+    meal_type: r.meal_type,
+    image_url: r.image_url || '',
+    persona: r.persona,
+    dishes: (() => { try { return JSON.parse(r.dishes_json || '[]'); } catch { return []; } })(),
+    kcal_low: r.kcal_low, kcal_high: r.kcal_high,
+    protein_low: r.protein_low, protein_high: r.protein_high,
+    carb_low: r.carb_low, carb_high: r.carb_high,
+    fat_low: r.fat_low, fat_high: r.fat_high,
+    fiber_low: r.fiber_low, fiber_high: r.fiber_high,
+    meal_score: r.meal_score,
+    suggestion: r.suggestion,
+    glycemic_risk: r.glycemic_risk,
+    created_at: Number(r.created_at),
+  }));
+}
+
+/** 体重记录（同一天重复则覆盖） */
+export async function upsertWeightLog(userId: string, logDate: string, weightKg: number) {
+  await getPool().execute(
+    `INSERT INTO weight_logs (user_id, log_date, weight_kg, created_at)
+     VALUES (?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE weight_kg = VALUES(weight_kg)`,
+    [userId, logDate, weightKg, Date.now()]
+  );
+}
+
+/** 体重曲线数据点（按日期升序，最近 N 天） */
+export async function getWeightLogs(userId: string, days: number) {
+  const [rows] = await getPool().execute(
+    'SELECT log_date, weight_kg FROM weight_logs WHERE user_id = ? ORDER BY log_date DESC LIMIT ?',
+    [userId, days]
+  ) as any;
+  return rows
+    .map((r: any) => ({ log_date: fmtDate(r.log_date), weight_kg: Number(r.weight_kg) }))
+    .reverse();
 }
 
