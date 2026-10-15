@@ -1,0 +1,4 @@
+/* pages/disclaimer/disclaimer.wxss */
+.container { padding-bottom: 40rpx; }
+.para { font-size: 28rpx; color: #444; line-height: 2; margin-bottom: 16rpx; }
+.para .hl { color: #fa5151; font-weight: 600; }

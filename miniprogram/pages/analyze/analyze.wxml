@@ -1,0 +1,84 @@
+<!-- pages/analyze/analyze.wxml -->
+<view class="container">
+
+  <!-- 加载中 -->
+  <view class="loading-wrap" wx:if="{{loading}}">
+    <view class="loading-emoji">🔍</view>
+    <view>AI 正在识别菜品...</view>
+    <view class="text-hint">约需 5-10 秒</view>
+  </view>
+
+  <!-- 出错 -->
+  <view class="card" wx:if="{{!loading && error}}">
+    <view class="card-title">分析失败了</view>
+    <view class="text-secondary">{{error}}</view>
+    <view class="btn-plain" bindtap="retry">重新拍摄</view>
+  </view>
+
+  <!-- 结果 -->
+  <block wx:if="{{!loading && analysis}}">
+
+    <!-- 评分环 + 餐次 -->
+    <view class="card score-row">
+      <view class="score-wrap">
+        <canvas type="2d" id="scoreRing" class="score-ring"></canvas>
+        <view class="score-num">{{analysis.mealScore}}<text class="unit">分</text></view>
+      </view>
+      <view class="score-info">
+        <view class="card-title">这顿{{mealTypeName}}</view>
+        <picker mode="selector" range="{{mealTypeOptions}}" value="{{mealTypeIndex}}" bindchange="onMealTypeChange">
+          <view class="picker-box">记为：{{mealTypeName}} ▾（点我改）</view>
+        </picker>
+        <view class="text-hint" wx:if="{{analysis.imageType === 'menu_screenshot'}}">根据菜单截图估算，实际以到手餐食为准</view>
+      </view>
+    </view>
+
+    <!-- 控糖：升糖风险徽章 -->
+    <view class="card" wx:if="{{isGlycemic && analysis.glycemicRisk}}">
+      <view class="risk-badge risk-{{analysis.glycemicRisk === '高' ? 'high' : analysis.glycemicRisk === '中' ? 'mid' : 'low'}}">
+        升糖风险：{{analysis.glycemicRisk}}
+      </view>
+      <view class="text-secondary">{{analysis.giNotes}}</view>
+      <view class="tip-box" wx:if="{{analysis.mealOrderTip}}">
+        <view class="tip-title">🥗 进餐顺序建议</view>
+        <view>{{analysis.mealOrderTip}}</view>
+      </view>
+      <view class="ai-tag">AI 生成，仅供参考</view>
+    </view>
+
+    <!-- 菜品列表 -->
+    <view class="card">
+      <view class="card-title">菜品明细（{{analysis.dishes.length}} 道）</view>
+      <view class="text-hint">识别有误？点 ✕ 删掉它再确认记录</view>
+      <block wx:for="{{analysis.dishes}}" wx:key="index">
+        <view class="dish-row">
+          <view class="dish-main">
+            <view class="dish-name">{{item.name}}
+              <text class="est-tag" wx:if="{{item.isEstimate}}">估算</text>
+            </view>
+            <view class="dish-sub">{{item.portion}} · 蛋白{{item.protein}}g / 碳水{{item.carb}}g / 脂肪{{item.fat}}g</view>
+          </view>
+          <view class="dish-kcal">{{item.kcalRange}}<text class="unit">kcal</text></view>
+          <view class="dish-del" data-index="{{index}}" bindtap="removeDish">✕</view>
+        </view>
+      </block>
+    </view>
+
+    <!-- 口语化建议 -->
+    <view class="card">
+      <view class="card-title">💡 这顿怎么吃更好</view>
+      <view class="suggestion">{{analysis.suggestion}}</view>
+      <block wx:for="{{analysis.warnings}}" wx:key="index">
+        <view class="warn-item">⚠️ {{item}}</view>
+      </block>
+      <view class="ai-tag">AI 生成，仅供参考</view>
+    </view>
+
+    <view class="btn-primary {{saving ? 'disabled' : ''}}" bindtap="confirmSave">确认记录</view>
+    <view class="back-link" bindtap="retry">← 不记录，重新拍</view>
+
+    <view class="compliance-footer" wx:if="{{isGlycemic}}">营养估算不构成医疗建议，请咨询医生或注册营养师</view>
+    <view class="compliance-footer" wx:else>AI 生成内容仅供参考</view>
+  </block>
+
+</view>

@@ -1,0 +1,33 @@
+/* pages/checkin/checkin.wxss */
+.container { padding-bottom: 40rpx; }
+
+.streak-card { text-align: center; padding: 40rpx 32rpx; }
+.streak-num { font-size: 88rpx; font-weight: 700; color: #07c160; }
+.streak-num .unit { font-size: 28rpx; color: #8a8f8a; font-weight: 400; }
+.streak-label { font-size: 30rpx; font-weight: 600; margin: 4rpx 0 8rpx; }
+
+.cal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+.cal-title { font-size: 34rpx; font-weight: 700; }
+.cal-nav { font-size: 48rpx; color: #07c160; padding: 0 24rpx; }
+
+.cal-week, .cal-row { display: flex; }
+.cal-week text {
+  flex: 1; text-align: center; font-size: 24rpx; color: #b0b5b0; padding: 8rpx 0;
+}
+.cal-cell {
+  flex: 1; text-align: center; font-size: 30rpx;
+  padding: 16rpx 0 10rpx; position: relative;
+}
+.cal-cell.today text {
+  background: #07c160; color: #fff;
+  border-radius: 50%; width: 56rpx; height: 56rpx;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.cal-cell .dot {
+  width: 12rpx; height: 12rpx; border-radius: 50%;
+  background: #07c160; margin: 4rpx auto 0;
+}
+.month-count { text-align: center; font-size: 26rpx; color: #8a8f8a; margin-top: 16rpx; }

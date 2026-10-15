@@ -1,0 +1,37 @@
+<!-- pages/me/me.wxml -->
+<view class="container">
+
+  <view class="card">
+    <view class="card-title">当前画像</view>
+    <view class="persona-line">
+      <text class="persona-name">{{isGlycemic ? '🩸 控糖' : '🍱 减脂 · 外卖党'}}</text>
+      <view class="switch-btn" bindtap="switchPersona">切换画像</view>
+    </view>
+    <view class="info-row">
+      <text class="text-hint">每日热量目标</text>
+      <text class="info-val">{{targetText}}</text>
+    </view>
+    <view class="info-row" wx:if="{{profile.heightCm}}">
+      <text class="text-hint">身高 / 体重</text>
+      <text class="info-val">{{profile.heightCm}}cm / {{profile.weightKg}}kg</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="menu-item" bindtap="goWeight">
+      <text>体重记录</text><text class="arrow">›</text>
+    </view>
+    <view class="menu-item" bindtap="goDisclaimer">
+      <text>免责声明</text><text class="arrow">›</text>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="menu-item danger" bindtap="logout">
+      <text>退出登录</text>
+    </view>
+  </view>
+
+  <view class="compliance-footer" wx:if="{{isGlycemic}}">营养估算不构成医疗建议，请咨询医生或注册营养师</view>
+  <view class="compliance-footer" wx:else>AI 生成内容仅供参考</view>
+</view>

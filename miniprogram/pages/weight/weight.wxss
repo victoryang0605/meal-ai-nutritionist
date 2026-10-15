@@ -1,0 +1,17 @@
+/* pages/weight/weight.wxss */
+.container { padding-bottom: 40rpx; }
+
+.input-row { display: flex; align-items: baseline; margin: 12rpx 0; }
+.weight-input {
+  flex: 1; background: #f2f5f2; border-radius: 16rpx;
+  padding: 24rpx; font-size: 64rpx; font-weight: 700; text-align: center;
+}
+.unit { font-size: 32rpx; color: #8a8f8a; margin-left: 12rpx; }
+
+.feedback {
+  background: #f0faf5; border-radius: 16rpx;
+  padding: 20rpx 24rpx; margin-top: 16rpx;
+  font-size: 28rpx; color: #1a7a3f;
+}
+
+.curve { width: 100%; height: 320rpx; }
