@@ -1,0 +1,70 @@
+<!-- pages/index/index.wxml -->
+<view class="container" wx:if="{{!loading}}">
+
+  <!-- 减脂模式：热量预算条 -->
+  <view class="card" wx:if="{{!isGlycemic}}">
+    <view class="card-title">今日热量预算</view>
+    <view class="big-num">{{intakeLow}}-{{intakeHigh}}<text class="unit"> kcal</text></view>
+    <view class="budget-text">{{budgetText}}</view>
+    <view class="progress-track"><view class="progress-fill" style="width: {{progressPct}}%"></view></view>
+    <view class="text-hint" wx:if="{{progressPct >= 100}}">已达到今日目标上限，晚上吃清淡点吧 🙂</view>
+  </view>
+
+  <!-- 控糖模式：升糖风险优先 -->
+  <view class="card risk-card" wx:if="{{isGlycemic}}">
+    <view class="card-title">今日升糖总览</view>
+    <block wx:if="{{topRisk}}">
+      <view class="risk-badge risk-{{topRisk.level === '高' ? 'high' : topRisk.level === '中' ? 'mid' : 'low'}}">
+        今日最高升糖风险：{{topRisk.level}}
+      </view>
+      <view class="text-secondary">已记录 {{topRisk.count}} 餐，点下方卡片查看每餐详情</view>
+    </block>
+    <block wx:else>
+      <view class="text-secondary">今天还没有记录，拍一张看看这顿饭的升糖风险吧</view>
+    </block>
+    <view class="ai-tag">AI 生成，仅供参考</view>
+  </view>
+
+  <!-- 拍三餐大按钮 -->
+  <view class="shoot-btn" bindtap="takePhoto">
+    <view class="shoot-emoji">📸</view>
+    <view class="shoot-text">拍三餐</view>
+    <view class="shoot-sub">拍照识菜品 · 算热量 · 给建议</view>
+  </view>
+
+  <!-- 三餐时间线 -->
+  <view class="section-title">今日三餐</view>
+  <view class="meal-grid">
+    <block wx:for="{{meals}}" wx:key="type">
+      <view class="meal-card" data-type="{{item.type}}" bindtap="tapMeal">
+        <view class="meal-emoji">{{item.emoji}}</view>
+        <view class="meal-name">{{item.name}}</view>
+        <block wx:if="{{item.logged}}">
+          <view class="meal-kcal">{{item.kcalText}}</view>
+          <view class="meal-dish">{{item.firstDish}}{{item.score !== null ? ' · ' + item.score + '分' : ''}}</view>
+          <view class="risk-dot risk-{{item.risk === '高' ? 'high' : item.risk === '中' ? 'mid' : 'low'}}"
+                wx:if="{{isGlycemic && item.risk}}">{{item.risk}}升糖</view>
+        </block>
+        <block wx:else>
+          <view class="meal-empty">待记录 +</view>
+        </block>
+      </view>
+    </block>
+  </view>
+
+  <!-- 体重快捷入口 -->
+  <view class="card row-between" bindtap="goWeight">
+    <view>
+      <view class="card-title">体重记录</view>
+      <view class="text-hint">每周称 2 次，看看曲线变化</view>
+    </view>
+    <view class="arrow">›</view>
+  </view>
+
+  <view class="compliance-footer" wx:if="{{isGlycemic}}">营养估算不构成医疗建议，请咨询医生或注册营养师</view>
+  <view class="compliance-footer" wx:else>AI 生成内容仅供参考</view>
+</view>
+
+<view class="loading-wrap" wx:else>
+  <text class="text-hint">加载中...</text>
+</view>

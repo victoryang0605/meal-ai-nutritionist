@@ -1,0 +1,70 @@
+<!-- pages/onboarding/onboarding.wxml -->
+<view class="container">
+
+  <!-- 步骤1：选画像 -->
+  <block wx:if="{{step === 1}}">
+    <view class="hero">
+      <view class="hero-title">你是哪一类？</view>
+      <view class="hero-sub">选一次就好，以后随时可以在"我的"里切换</view>
+    </view>
+
+    <view class="persona-card {{persona === 'takeout' ? 'active' : ''}}"
+          data-persona="takeout" bindtap="selectPersona">
+      <view class="persona-emoji">🍱</view>
+      <view class="persona-name">减脂 · 外卖党</view>
+      <view class="persona-desc">点外卖前先拍一张，AI 按热量排序推荐，教你"换一下更划算"</view>
+    </view>
+
+    <view class="persona-card {{persona === 'glycemic' ? 'active' : ''}}"
+          data-persona="glycemic" bindtap="selectPersona">
+      <view class="persona-emoji">🩸</view>
+      <view class="persona-name">控糖</view>
+      <view class="persona-desc">每餐升糖风险分级 + 升糖主力定位 + 进餐顺序建议</view>
+    </view>
+  </block>
+
+  <!-- 步骤2：填身体数据 -->
+  <block wx:else>
+    <view class="hero">
+      <view class="hero-title">{{persona === 'glycemic' ? '控糖档案' : '减脂档案'}}</view>
+      <view class="hero-sub">用来计算你的每日热量目标，只存你自己手机关联的账号下</view>
+    </view>
+
+    <view class="card">
+      <view class="form-label">身高（cm）</view>
+      <input class="form-input" type="digit" placeholder="如 165" data-field="heightCm" bindinput="onInput" value="{{heightCm}}" />
+
+      <view class="form-label">体重（kg）</view>
+      <input class="form-input" type="digit" placeholder="如 62.5" data-field="weightKg" bindinput="onInput" value="{{weightKg}}" />
+
+      <view class="form-label">年龄（选填）</view>
+      <input class="form-input" type="number" placeholder="如 30" data-field="age" bindinput="onInput" value="{{age}}" />
+
+      <view class="form-label">性别</view>
+      <radio-group bindchange="onGender">
+        <label class="radio-item"><radio value="female" checked="{{gender === 'female'}}" color="#07c160" />女</label>
+        <label class="radio-item"><radio value="male" checked="{{gender === 'male'}}" color="#07c160" />男</label>
+      </radio-group>
+
+      <view class="form-label">平时活动量</view>
+      <picker mode="selector" range="{{activityOptions}}" value="{{activityIndex}}" bindchange="onActivity">
+        <view class="picker-box">{{activityOptions[activityIndex]}} ▾</view>
+      </picker>
+    </view>
+
+    <!-- 控糖必须勾选 -->
+    <view class="card" wx:if="{{persona === 'glycemic'}}">
+      <label class="disclaimer-row" bindtap="toggleDisclaimer">
+        <checkbox checked="{{disclaimerAck}}" color="#07c160" />
+        <text>我已知悉：本产品只做营养信息参考，<text class="hl">不构成医疗建议</text>，用药问题请咨询医生或药师。</text>
+      </label>
+      <view class="link" bindtap="goDisclaimer">查看完整免责声明 →</view>
+    </view>
+
+    <view class="btn-primary {{submitting ? 'disabled' : ''}}" bindtap="submit">开始使用</view>
+    <view class="back-link" bindtap="backStep">← 重新选择画像</view>
+
+    <view class="compliance-footer">AI 生成内容仅供参考，不构成医疗建议</view>
+  </block>
+
+</view>

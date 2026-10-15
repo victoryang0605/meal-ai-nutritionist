@@ -1,0 +1,28 @@
+<!-- pages/weight/weight.wxml -->
+<view class="container">
+
+  <view class="card">
+    <view class="card-title">今日体重</view>
+    <view class="input-row">
+      <input class="weight-input" type="digit" placeholder="如 62.5"
+             value="{{input}}" bindinput="onInput" />
+      <text class="unit">kg</text>
+    </view>
+    <view class="btn-plain" wx:if="{{lastWeight != null}}" bindtap="useLast">
+      和上次一样（{{lastWeight}}kg），一点即记
+    </view>
+    <view class="btn-primary {{saving ? 'disabled' : ''}}" bindtap="save">记录体重</view>
+    <view class="feedback" wx:if="{{feedback}}">{{feedback}}</view>
+    <view class="text-hint">每周称 2 次就够了（比如周一、周四早上），漏记不用补</view>
+  </view>
+
+  <view class="card" wx:if="{{hasData}}">
+    <view class="card-title">近 30 天曲线</view>
+    <canvas type="2d" id="weightCurve" class="curve"></canvas>
+  </view>
+  <view class="card" wx:else>
+    <view class="text-secondary">还没有体重数据，记一次就开始画曲线了</view>
+  </view>
+
+  <view class="compliance-footer">体重变化受多种因素影响，曲线仅作趋势参考</view>
+</view>

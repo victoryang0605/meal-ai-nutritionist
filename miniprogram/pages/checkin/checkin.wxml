@@ -1,0 +1,36 @@
+<!-- pages/checkin/checkin.wxml -->
+<view class="container">
+
+  <view class="card streak-card">
+    <view class="streak-num">{{streak}}<text class="unit"> 天</text></view>
+    <view class="streak-label">连续打卡</view>
+    <view class="text-hint">断签不扣分，明天继续就是胜利 ✌️</view>
+  </view>
+
+  <view class="card">
+    <view class="cal-header">
+      <view class="cal-nav" bindtap="prevMonth">‹</view>
+      <view class="cal-title">{{year}} 年 {{month + 1}} 月</view>
+      <view class="cal-nav" bindtap="nextMonth">›</view>
+    </view>
+    <view class="cal-week">
+      <text>日</text><text>一</text><text>二</text><text>三</text><text>四</text><text>五</text><text>六</text>
+    </view>
+    <block wx:for="{{weeks}}" wx:key="index">
+      <view class="cal-row">
+        <block wx:for="{{item.days}}" wx:key="index">
+          <view class="cal-cell {{it && it.isToday ? 'today' : ''}}">
+            <block wx:if="{{it}}">
+              <text>{{it.day}}</text>
+              <view class="dot" wx:if="{{it.checked}}"></view>
+            </block>
+          </view>
+        </block>
+      </view>
+    </block>
+    <view class="month-count">本月已打卡 {{monthCount}} 天</view>
+  </view>
+
+  <view class="btn-primary" bindtap="goShoot">去记录今日三餐</view>
+  <view class="compliance-footer">AI 生成内容仅供参考</view>
+</view>

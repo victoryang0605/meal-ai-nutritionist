@@ -1,0 +1,75 @@
+/* pages/index/index.wxss */
+.container { padding-bottom: 40rpx; }
+.loading-wrap { padding: 120rpx; text-align: center; }
+
+.budget-text { font-size: 26rpx; color: #666; margin: 8rpx 0 16rpx; }
+.progress-track { margin-top: 8rpx; }
+
+.risk-card { border-left: 8rpx solid #07c160; }
+.risk-badge {
+  display: inline-block;
+  font-size: 34rpx;
+  font-weight: 700;
+  padding: 12rpx 28rpx;
+  border-radius: 40rpx;
+  margin: 8rpx 0 12rpx;
+  color: #fff;
+}
+.risk-high { background: #fa5151; }
+.risk-mid { background: #fa9d3b; }
+.risk-low { background: #07c160; }
+
+.shoot-btn {
+  background: linear-gradient(135deg, #07c160, #34c759);
+  border-radius: 32rpx;
+  margin: 8rpx 24rpx 8rpx;
+  padding: 44rpx;
+  text-align: center;
+  color: #fff;
+  box-shadow: 0 8rpx 24rpx rgba(7, 193, 96, 0.3);
+}
+.shoot-btn:active { opacity: 0.9; }
+.shoot-emoji { font-size: 64rpx; }
+.shoot-text { font-size: 40rpx; font-weight: 700; margin-top: 8rpx; }
+.shoot-sub { font-size: 24rpx; opacity: 0.85; margin-top: 4rpx; }
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin: 32rpx 32rpx 8rpx;
+}
+
+.meal-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0 16rpx;
+}
+.meal-card {
+  width: 42%;
+  background: #fff;
+  border-radius: 24rpx;
+  margin: 12rpx 2%;
+  padding: 28rpx 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
+  min-height: 180rpx;
+}
+.meal-emoji { font-size: 48rpx; }
+.meal-name { font-size: 30rpx; font-weight: 600; margin: 6rpx 0; }
+.meal-kcal { font-size: 30rpx; font-weight: 700; color: #07c160; }
+.meal-dish { font-size: 24rpx; color: #8a8f8a; margin-top: 4rpx; }
+.meal-empty { font-size: 26rpx; color: #b0b5b0; margin-top: 12rpx; }
+.risk-dot {
+  display: inline-block;
+  font-size: 22rpx;
+  color: #fff;
+  border-radius: 20rpx;
+  padding: 4rpx 16rpx;
+  margin-top: 8rpx;
+}
+
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.arrow { font-size: 48rpx; color: #c9cec9; }

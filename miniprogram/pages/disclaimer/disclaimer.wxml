@@ -1,0 +1,13 @@
+<!-- pages/disclaimer/disclaimer.wxml -->
+<view class="container">
+  <view class="card">
+    <view class="card-title">免责声明</view>
+    <view class="para">1. 本小程序提供的食物识别、热量与营养素估算、饮食评分、升糖风险提示等内容，均由 AI 生成，<text class="hl">仅供参考</text>。</view>
+    <view class="para">2. 热量与营养素均为<text class="hl">区间估算</text>，不是精确测量值；不同烹饪方式、份量差异会导致实际数值有所出入。</view>
+    <view class="para">3. 本产品<text class="hl">不构成医疗建议、诊断或治疗方案</text>。不会、也不应提供任何用药、调药、停药或胰岛素使用方面的建议。</view>
+    <view class="para">4. 孕妇、哺乳期女性、未成年人、糖尿病患者及其他慢性病人群，在调整饮食前<text class="hl">请务必咨询医生或注册营养师</text>。</view>
+    <view class="para">5. 体重变化受多种因素影响，体重曲线仅作趋势参考，本产品不承诺任何减重效果。</view>
+    <view class="para">6. 你的饮食记录、体重等数据仅用于向你本人提供服务，我们不会将其用于其他用途。</view>
+    <view class="para">继续使用本小程序，即表示你已阅读并理解以上声明。</view>
+  </view>
+</view>

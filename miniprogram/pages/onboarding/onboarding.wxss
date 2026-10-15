@@ -1,0 +1,45 @@
+/* pages/onboarding/onboarding.wxss */
+.container { padding-bottom: 60rpx; }
+
+.hero { padding: 48rpx 32rpx 16rpx; }
+.hero-title { font-size: 48rpx; font-weight: 700; }
+.hero-sub { font-size: 26rpx; color: #8a8f8a; margin-top: 8rpx; }
+
+.persona-card {
+  background: #fff;
+  border-radius: 28rpx;
+  margin: 24rpx;
+  padding: 40rpx 32rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
+  border: 4rpx solid transparent;
+}
+.persona-card.active { border-color: #07c160; }
+.persona-emoji { font-size: 72rpx; }
+.persona-name { font-size: 36rpx; font-weight: 700; margin: 12rpx 0 8rpx; }
+.persona-desc { font-size: 26rpx; color: #666; line-height: 1.7; }
+
+.radio-item { margin-right: 48rpx; font-size: 30rpx; }
+.picker-box {
+  background: #f2f5f2;
+  border-radius: 16rpx;
+  padding: 20rpx 24rpx;
+  font-size: 30rpx;
+}
+
+.disclaimer-row {
+  display: flex;
+  align-items: flex-start;
+  font-size: 26rpx;
+  color: #555;
+  line-height: 1.8;
+}
+.disclaimer-row checkbox { margin-right: 12rpx; margin-top: 6rpx; }
+.disclaimer-row .hl { color: #fa5151; font-weight: 600; }
+.link { color: #07c160; font-size: 26rpx; margin-top: 16rpx; }
+
+.back-link {
+  text-align: center;
+  color: #8a8f8a;
+  font-size: 26rpx;
+  margin-top: 8rpx;
+}
