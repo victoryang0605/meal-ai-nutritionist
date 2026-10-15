@@ -19,6 +19,7 @@ import dotenv from 'dotenv';
 
 import * as DB from './src/db.js';
 import * as RL from './src/rate-limit.js';
+import * as MEAL from './src/meal.js';
 
 dotenv.config();
 
@@ -445,13 +446,270 @@ async function startServer() {
   });
 
   // ============================================================
-  // 业务路由扩展位（W2）
+  // W2：三餐 AI 营养师业务路由
   // ------------------------------------------------------------
-  //   POST /api/meal/analyze   餐食识别（双画像 prompt，见 scripts/prompts/meal-analyze.md）
-  //   GET/POST /api/meal/logs  饮食记录 CRUD
-  //   GET/POST /api/weight     体重记录 + 曲线
-  //   POST /api/user/profile   用户画像（目标/忌口/慢病声明）
-  //   虚拟支付路由（会员/次数包）：参考 vibeshot 的 /api/virtual-pay/* 实现
+  // 安全基线：全部需要登录（resolveOpenid → 401）；全局限流已在上方挂载；
+  // /api/meal-analyze 额外挂 RL.llmCostLimiter + 额度校验/消耗（消耗 AI 配额）。
+  // ============================================================
+
+  async function requireOpenid(req: express.Request, res: express.Response): Promise<string | null> {
+    const openid = await resolveOpenid(req);
+    if (!openid) {
+      res.status(401).json({ error: '未登录或登录已过期' });
+      return null;
+    }
+    return openid;
+  }
+
+  // ---------- 用户画像 ----------
+
+  // 保存画像（onboarding 用）。persona=glycemic 时必须 disclaimer_acknowledged=true。
+  // 保存后用 Mifflin-St Jeor 公式计算每日目标热量区间一并返回。
+  app.post('/api/user/profile', async (req, res) => {
+    const openid = await requireOpenid(req, res);
+    if (!openid) return;
+    try {
+      const b = req.body || {};
+      const persona: MEAL.Persona = b.persona === 'glycemic' ? 'glycemic' : 'takeout';
+      if (persona === 'glycemic' && b.disclaimer_acknowledged !== true) {
+        return res.status(400).json({ error: '控糖模式需先阅读并确认健康声明（disclaimer_acknowledged=true）' });
+      }
+      const num = (v: any) => (v === '' || v == null ? null : Number(v));
+      const height_cm = num(b.height_cm);
+      const weight_kg = num(b.weight_kg);
+      const age = num(b.age);
+      if (height_cm != null && (isNaN(height_cm) || height_cm < 100 || height_cm > 250)) {
+        return res.status(400).json({ error: 'height_cm 非法（100-250）' });
+      }
+      if (weight_kg != null && (isNaN(weight_kg) || weight_kg < 30 || weight_kg > 300)) {
+        return res.status(400).json({ error: 'weight_kg 非法（30-300）' });
+      }
+      if (age != null && (!Number.isInteger(age) || age < 10 || age > 120)) {
+        return res.status(400).json({ error: 'age 非法（10-120 整数）' });
+      }
+      const gender: MEAL.Gender | null = b.gender === 'male' || b.gender === 'female' ? b.gender : null;
+      const activity_level: MEAL.ActivityLevel = ['sedentary', 'light', 'moderate', 'active', 'very_active'].includes(b.activity_level)
+        ? b.activity_level : 'light';
+
+      const target = MEAL.calcTargetKcal({ height_cm, weight_kg, age, gender, activity_level, persona });
+      const profile = await DB.upsertUserProfile(openid, {
+        persona, height_cm, weight_kg, age, gender, activity_level,
+        daily_kcal_low: target?.low ?? null,
+        daily_kcal_high: target?.high ?? null,
+        disclaimer_acknowledged: !!b.disclaimer_acknowledged,
+      });
+      res.json({
+        profile,
+        target_detail: target ? { bmr: target.bmr, tdee: target.tdee } : null,
+      });
+    } catch (err: any) {
+      console.error('[user/profile]', err?.message);
+      res.status(500).json({ error: '保存画像失败，请稍后再试' });
+    }
+  });
+
+  // 读取画像
+  app.get('/api/user/profile', async (req, res) => {
+    const openid = await requireOpenid(req, res);
+    if (!openid) return;
+    try {
+      const profile = await DB.getUserProfile(openid);
+      res.json({ profile });
+    } catch (err: any) {
+      console.error('[user/profile GET]', err?.message);
+      res.status(500).json({ error: '读取画像失败，请稍后再试' });
+    }
+  });
+
+  // ---------- 餐食分析（只分析不落库，落库走 /api/diet-log） ----------
+
+  app.post('/api/meal-analyze', RL.llmCostLimiter, async (req, res) => {
+    const openid = await requireOpenid(req, res);
+    if (!openid) return;
+    try {
+      const b = req.body || {};
+      const persona: MEAL.Persona = b.persona === 'glycemic' ? 'glycemic' : 'takeout';
+      const image = String(b.image || '');
+      if (!image) return res.status(400).json({ error: '缺少 image（data URI / Base64 / 图片 URL）' });
+
+      // 额度校验（安全基线：消耗 AI 配额的接口必须校验额度）
+      const before = await DB.calcCredits(openid);
+      if (!before.totalRemaining) {
+        return res.status(402).json({ error: 'quota_exhausted', credits: before });
+      }
+
+      // 图片输入归一化为 data URI
+      let dataUri: string;
+      if (image.startsWith('data:')) {
+        dataUri = image;
+      } else if (/^https?:\/\//i.test(image)) {
+        const dl = await MEAL.fetchImageToBase64(image);
+        dataUri = `data:${dl.mime};base64,${dl.base64}`;
+      } else if (/^[A-Za-z0-9+/=\s]+$/.test(image) && image.replace(/\s/g, '').length > 100) {
+        dataUri = image; // 裸 Base64（callVisionWithFailover 内补 data URI 前缀）
+      } else {
+        return res.status(400).json({ error: 'image 格式不支持（需要 data URI / Base64 / http(s) URL）' });
+      }
+
+      const prompt = MEAL.loadPersonaPrompt(persona);
+      const analysis = await callVisionWithFailover(dataUri, prompt, { provider: 'meal' });
+
+      // 与测试脚本同款校验
+      const vErrs = MEAL.validateMealAnalysis(analysis, persona);
+      if (vErrs.length > 0) {
+        return res.status(502).json({ error: '分析结果校验失败', validation_errors: vErrs });
+      }
+
+      // 服务端用药行为安全复查：命中则截断 suggestion 并打标记
+      let med_safety_hit = false;
+      if (MEAL.medSafetyHit(analysis)) {
+        med_safety_hit = true;
+        analysis.suggestion = '该条建议涉及用药相关内容，已被安全策略截断。如有疑问请咨询医生或药师。';
+        console.warn(`[med-safety] user=${openid.slice(0, 8)} persona=${persona} 命中用药行为词表，已截断 suggestion`);
+      }
+
+      // 分析成功后消耗一次额度
+      const consume = await DB.consumeCredit(openid);
+      if (!consume.ok) {
+        return res.status(402).json({ error: 'quota_exhausted', credits: consume.credits });
+      }
+
+      res.json({ analysis, med_safety_hit, credits: consume.credits });
+    } catch (err: any) {
+      console.error('[meal-analyze]', err?.message);
+      res.status(502).json({ error: `餐食分析失败：${err?.message || '未知错误'}` });
+    }
+  });
+
+  // ---------- 饮食记录 ----------
+
+  // 落库一条饮食记录（客户端可先让用户手动修正 analysis 再提交）
+  app.post('/api/diet-log', async (req, res) => {
+    const openid = await requireOpenid(req, res);
+    if (!openid) return;
+    try {
+      const b = req.body || {};
+      const { log_date, meal_type, persona, analysis } = b;
+      if (!MEAL.isValidDate(log_date)) return res.status(400).json({ error: 'log_date 非法（YYYY-MM-DD）' });
+      if (!MEAL.MEAL_TYPES.includes(meal_type)) {
+        return res.status(400).json({ error: 'meal_type 非法（breakfast|lunch|dinner|snack）' });
+      }
+      const p: MEAL.Persona = persona === 'glycemic' ? 'glycemic' : 'takeout';
+      if (!analysis || typeof analysis !== 'object' || !Array.isArray(analysis.dishes)) {
+        return res.status(400).json({ error: 'analysis 非法（需要 /api/meal-analyze 返回的 JSON）' });
+      }
+
+      // 区间求和：各菜品区间相加得到整餐区间
+      const sumRange = (key: string) => {
+        let lo = 0, hi = 0, any = false;
+        for (const d of analysis.dishes) {
+          const r = MEAL.parseRange(d[key]);
+          if (r) { lo += r.low; hi += r.high; any = true; }
+        }
+        return any ? { low: lo, high: hi } : { low: null as number | null, high: null as number | null };
+      };
+      const kcal = sumRange('kcal_range');
+      const protein = sumRange('protein_g');
+      const carb = sumRange('carb_g');
+      const fat = sumRange('fat_g');
+      const fiber = sumRange('fiber_g');
+      const meal_score = Number.isInteger(analysis.meal_score) ? analysis.meal_score : null;
+
+      const id = await DB.insertDietLog(openid, {
+        log_date, meal_type, persona,
+        image_url: typeof b.image_url === 'string' ? b.image_url : '',
+        dishes: analysis.dishes,
+        kcal_low: kcal.low, kcal_high: kcal.high,
+        protein_low: protein.low, protein_high: protein.high,
+        carb_low: carb.low, carb_high: carb.high,
+        fat_low: fat.low, fat_high: fat.high,
+        fiber_low: fiber.low, fiber_high: fiber.high,
+        meal_score,
+        suggestion: typeof analysis.suggestion === 'string' ? analysis.suggestion : null,
+        glycemic_risk: p === 'glycemic' && typeof analysis.glycemic_risk === 'string' ? analysis.glycemic_risk : null,
+      });
+      res.json({ id, log_date, meal_type });
+    } catch (err: any) {
+      console.error('[diet-log POST]', err?.message);
+      res.status(500).json({ error: '保存饮食记录失败，请稍后再试' });
+    }
+  });
+
+  // 按日查询：当日记录 + 汇总 + 三餐齐全度 + 目标对比
+  app.get('/api/diet-log', async (req, res) => {
+    const openid = await requireOpenid(req, res);
+    if (!openid) return;
+    try {
+      const date = typeof req.query.date === 'string' && MEAL.isValidDate(req.query.date)
+        ? req.query.date : MEAL.shanghaiDate();
+      const logs = await DB.getDietLogsByDate(openid, date);
+      const sum = (k: string) => logs.reduce((a: number, l: any) => a + (l[k] ?? 0), 0);
+      const total = {
+        kcal_low: sum('kcal_low'), kcal_high: sum('kcal_high'),
+        protein_low: sum('protein_low'), protein_high: sum('protein_high'),
+        carb_low: sum('carb_low'), carb_high: sum('carb_high'),
+        fat_low: sum('fat_low'), fat_high: sum('fat_high'),
+        fiber_low: sum('fiber_low'), fiber_high: sum('fiber_high'),
+      };
+      const meals_present = {
+        breakfast: logs.some((l: any) => l.meal_type === 'breakfast'),
+        lunch: logs.some((l: any) => l.meal_type === 'lunch'),
+        dinner: logs.some((l: any) => l.meal_type === 'dinner'),
+      };
+      const profile = await DB.getUserProfile(openid);
+      res.json({
+        date,
+        logs,
+        total,
+        meals_present,
+        target: profile
+          ? { daily_kcal_low: profile.daily_kcal_low, daily_kcal_high: profile.daily_kcal_high }
+          : null,
+      });
+    } catch (err: any) {
+      console.error('[diet-log GET]', err?.message);
+      res.status(500).json({ error: '读取饮食记录失败，请稍后再试' });
+    }
+  });
+
+  // ---------- 体重记录 ----------
+
+  // 记录体重（同一天重复则覆盖）
+  app.post('/api/weight-log', async (req, res) => {
+    const openid = await requireOpenid(req, res);
+    if (!openid) return;
+    try {
+      const { log_date, weight_kg } = req.body || {};
+      if (!MEAL.isValidDate(log_date)) return res.status(400).json({ error: 'log_date 非法（YYYY-MM-DD）' });
+      const w = Number(weight_kg);
+      if (isNaN(w) || w < 20 || w > 300) return res.status(400).json({ error: 'weight_kg 非法（20-300）' });
+      const rounded = Math.round(w * 10) / 10;
+      await DB.upsertWeightLog(openid, log_date, rounded);
+      res.json({ log_date, weight_kg: rounded });
+    } catch (err: any) {
+      console.error('[weight-log POST]', err?.message);
+      res.status(500).json({ error: '保存体重失败，请稍后再试' });
+    }
+  });
+
+  // 体重曲线数据点（按日期升序，默认最近 30 天）
+  app.get('/api/weight-log', async (req, res) => {
+    const openid = await requireOpenid(req, res);
+    if (!openid) return;
+    try {
+      let days = parseInt(String(req.query.days || '30'), 10);
+      if (isNaN(days) || days < 1) days = 30;
+      if (days > 365) days = 365;
+      const points = await DB.getWeightLogs(openid, days);
+      res.json({ days, points });
+    } catch (err: any) {
+      console.error('[weight-log GET]', err?.message);
+      res.status(500).json({ error: '读取体重记录失败，请稍后再试' });
+    }
+  });
+
+  // ============================================================
+  // 虚拟支付路由（会员/次数包）：参考 vibeshot 的 /api/virtual-pay/* 实现
   //
   // ⚠️ 新增消耗 AI 额度的接口必须同时满足：
   //     1. 登录校验（resolveOpenid → 401）
