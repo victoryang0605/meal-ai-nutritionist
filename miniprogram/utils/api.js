@@ -6,7 +6,7 @@
 // 后端地址：Victor 部署后填真实域名（HTTPS，需加到小程序 request 合法域名）。
 // 联调时可临时改为局域网地址，真机需与电脑同一 WiFi。
 // ============================================================
-const API_BASE = 'https://YOUR_API_DOMAIN';
+const API_BASE = 'https://api.cooperelate.com';
 
 const TOKEN_KEY = 'meal_token';
 const PROFILE_KEY = 'meal_profile_cache';

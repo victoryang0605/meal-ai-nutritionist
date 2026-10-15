@@ -1,4 +1,4 @@
-# 三餐 AI 营养师 · 小程序前端
+# 三餐有数 · 小程序前端
 
 微信原生小程序（wxml / wxss / js），浅色清新健康风。
 
@@ -6,8 +6,7 @@
 
 1. **AppID**：`project.config.json` 里的 `appid` 当前是占位符 `wx0000000000000000`，
    注册新小程序后替换为真实 AppID。
-2. **后端域名**：`utils/api.js` 顶部的 `API_BASE` 当前是 `https://YOUR_API_DOMAIN`，
-   部署后端后替换为真实 HTTPS 域名，并把该域名加到小程序后台
+2. **后端域名**：`utils/api.js` 顶部的 `API_BASE` 已设为 `https://api.cooperelate.com`，把该域名加到小程序后台
    「开发管理 → 开发设置 → 服务器域名」的 request 合法域名里。
 
 ## 目录结构

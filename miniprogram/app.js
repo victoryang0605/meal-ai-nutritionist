@@ -1,4 +1,4 @@
-// app.js —— 三餐 AI 营养师
+// app.js —— 三餐有数
 App({
   onLaunch() {
     wx.getSystemInfo({
