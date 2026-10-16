@@ -13,9 +13,9 @@ const PROFILE_KEY = 'meal_profile_cache';
 const CHECKIN_DAYS_KEY = 'meal_checkin_days'; // 本地打卡日期（YYYY-MM-DD 数组）
 
 // 每日打卡提醒订阅消息模板 ID。
-// TODO(模板对齐): Victor 在小程序后台「订阅消息」申请到「打卡提醒」类模板后，
-// 把真实模板 ID 填到这里（替换占位符），并让后端按模板实际字段调整 data 组装。
-const REMINDER_TEMPLATE_ID = 'TEMPLATE_ID_PLACEHOLDER';
+// 订阅消息模板 ID（Victor 已在小程序后台申请到「打卡提醒」类模板）。
+// 后端 data 字段组装若与模板实际字段不匹配，按模板详情页调整（见 server.ts TODO）。
+const REMINDER_TEMPLATE_ID = 'VSZc_UxOev7TohuwK1Ro18uGcmFGPCso08vpOGolSIQ';
 
 // ---------- 基础 ----------
 
