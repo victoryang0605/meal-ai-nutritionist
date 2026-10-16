@@ -31,3 +31,31 @@
   background: #07c160; margin: 4rpx auto 0;
 }
 .month-count { text-align: center; font-size: 26rpx; color: #8a8f8a; margin-top: 16rpx; }
+
+/* 今日三餐四宫格 */
+.slot-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  padding: 0 32rpx;
+  margin-top: 12rpx;
+}
+.slot-cell {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 28rpx 20rpx;
+  text-align: center;
+}
+.slot-cell:active { opacity: 0.85; }
+.slot-emoji { font-size: 52rpx; }
+.slot-name { font-size: 30rpx; font-weight: 600; margin-top: 8rpx; }
+.slot-info { font-size: 26rpx; color: #8a8f8a; margin-top: 8rpx; }
+.slot-kcal { font-size: 28rpx; font-weight: 600; color: #07c160; margin-top: 4rpx; }
+.slot-empty { font-size: 26rpx; color: #b0b5b0; margin-top: 12rpx; }
+.center { text-align: center; margin: 12rpx 0 4rpx; }
+
+/* 提醒开关 */
+.switch-btn.on { color: #fff; background: #07c160; }
+
+.section-title { font-size: 32rpx; font-weight: 600; margin: 32rpx 32rpx 8rpx; }
+.row-between { display: flex; justify-content: space-between; align-items: center; }

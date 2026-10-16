@@ -1,0 +1,16 @@
+/* pages/history/history.wxss */
+.container { padding-bottom: 40rpx; }
+.center { text-align: center; margin: 0 32rpx 8rpx; }
+.section-title { font-size: 32rpx; font-weight: 600; margin: 24rpx 32rpx 8rpx; }
+.record-card:active { opacity: 0.9; }
+.row-between { display: flex; justify-content: space-between; align-items: center; }
+.record-date { font-size: 30rpx; font-weight: 600; }
+.record-score { font-size: 28rpx; font-weight: 700; color: #07c160; }
+.record-kcal { font-size: 26rpx; color: #8a8f8a; margin-top: 8rpx; }
+.record-dishes { font-size: 28rpx; margin-top: 8rpx; line-height: 1.7; }
+.dish-detail { padding: 12rpx 0; border-top: 1rpx solid #f0f2f0; margin-top: 12rpx; font-size: 26rpx; }
+.dish-detail .kcal { color: #07c160; font-weight: 600; }
+.expand-hint { font-size: 24rpx; color: #b0b5b0; text-align: center; margin-top: 12rpx; }
+.empty-wrap { text-align: center; padding: 120rpx 0; }
+.empty-emoji { font-size: 96rpx; }
+.loading-wrap { text-align: center; padding: 120rpx 0; }

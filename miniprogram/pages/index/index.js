@@ -35,6 +35,13 @@ Page({
 
   onShow() {
     this.load();
+    // 从餐位历史页"记录这一餐"跳过来：直接打开该餐位的拍照
+    const app = getApp();
+    if (app.globalData.pendingMealType) {
+      const mt = app.globalData.pendingMealType;
+      app.globalData.pendingMealType = null;
+      setTimeout(() => this.openShootSheet(mt), 600);
+    }
   },
 
   async load() {
@@ -101,6 +108,7 @@ Page({
       profile, isGlycemic,
       intakeLow, intakeHigh, targetLow, targetHigh,
       progressPct, budgetText,
+      overLimit: !!(targetHigh && intakeHigh >= targetHigh),
       meals, topRisk,
       loading: false,
     });
@@ -108,18 +116,10 @@ Page({
 
   // 拍三餐：先选餐次（默认按时间），再选图
   takePhoto() {
-    const that = this;
-    wx.showActionSheet({
-      itemList: ['拍照', '从相册选择'],
-      success(res) {
-        that.chooseImage(res.tapIndex === 0 ? 'camera' : 'album', defaultMealType());
-      }
-    });
+    this.openShootSheet(defaultMealType());
   },
 
-  // 时间线卡片点击：直接进入该餐次的拍照
-  tapMeal(e) {
-    const mealType = e.currentTarget.dataset.type;
+  openShootSheet(mealType) {
     const that = this;
     wx.showActionSheet({
       itemList: ['拍照', '从相册选择'],
@@ -127,6 +127,11 @@ Page({
         that.chooseImage(res.tapIndex === 0 ? 'camera' : 'album', mealType);
       }
     });
+  },
+
+  // 时间线卡片点击：直接进入该餐次的拍照
+  tapMeal(e) {
+    this.openShootSheet(e.currentTarget.dataset.type);
   },
 
   async chooseImage(sourceType, mealType) {

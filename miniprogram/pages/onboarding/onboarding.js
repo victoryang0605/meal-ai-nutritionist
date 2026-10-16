@@ -1,4 +1,4 @@
-// pages/onboarding/onboarding.js —— 首次进入：选画像 + 建档
+// pages/onboarding/onboarding.js —— 首次进入：选画像 + 建档 + 昵称头像 + 协议
 const api = require('../../utils/api.js');
 
 const ACTIVITY_OPTIONS = [
@@ -20,6 +20,10 @@ Page({
     activityIndex: 1,
     activityOptions: ACTIVITY_OPTIONS.map((o) => o.label),
     disclaimerAck: false,
+    // 步骤3
+    nickName: '',
+    avatarUrl: '',
+    agreementAck: false,
     submitting: false,
   },
 
@@ -29,6 +33,10 @@ Page({
 
   backStep() {
     this.setData({ step: 1 });
+  },
+
+  backStep2() {
+    this.setData({ step: 2 });
   },
 
   onInput(e) {
@@ -52,20 +60,54 @@ Page({
     wx.navigateTo({ url: '/pages/disclaimer/disclaimer' });
   },
 
-  async submit() {
+  // 步骤2 → 步骤3：校验身体数据
+  nextStep() {
     const d = this.data;
-    if (!d.persona) { wx.showToast({ title: '请先选择画像', icon: 'none' }); return; }
     if (d.persona === 'glycemic' && !d.disclaimerAck) {
       wx.showToast({ title: '请先阅读并勾选健康声明', icon: 'none' });
       return;
     }
-    const heightCm = Number(d.heightCm), weightKg = Number(d.weightKg), age = d.age ? Number(d.age) : null;
+    const heightCm = Number(d.heightCm), weightKg = Number(d.weightKg);
     if (!heightCm || heightCm < 100 || heightCm > 250) { wx.showToast({ title: '请填写正确的身高', icon: 'none' }); return; }
     if (!weightKg || weightKg < 30 || weightKg > 300) { wx.showToast({ title: '请填写正确的体重', icon: 'none' }); return; }
+    this.setData({ step: 3 });
+  },
+
+  onNickname(e) {
+    this.setData({ nickName: e.detail.value || '' });
+  },
+
+  onChooseAvatar(e) {
+    if (e.detail && e.detail.avatarUrl) {
+      this.setData({ avatarUrl: e.detail.avatarUrl });
+    }
+  },
+
+  toggleAgreement() {
+    this.setData({ agreementAck: !this.data.agreementAck });
+  },
+
+  goAgreement() {
+    wx.navigateTo({ url: '/pages/agreement/agreement' });
+  },
+
+  goPrivacy() {
+    wx.navigateTo({ url: '/pages/privacy/privacy' });
+  },
+
+  async submit() {
+    const d = this.data;
+    if (!d.persona) { wx.showToast({ title: '请先选择画像', icon: 'none' }); return; }
+    if (!d.agreementAck) {
+      wx.showToast({ title: '请先阅读并同意服务协议与隐私指引', icon: 'none' });
+      return;
+    }
+    const heightCm = Number(d.heightCm), weightKg = Number(d.weightKg), age = d.age ? Number(d.age) : null;
 
     this.setData({ submitting: true });
     wx.showLoading({ title: '建档中...', mask: true });
-    const okLogin = await api.ensureLogin();
+    // 建档登录：把昵称头像一起传给后端
+    const okLogin = await api.wxLogin(d.nickName.trim(), d.avatarUrl);
     if (!okLogin) {
       wx.hideLoading();
       this.setData({ submitting: false });

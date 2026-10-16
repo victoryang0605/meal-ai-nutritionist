@@ -1,0 +1,42 @@
+<!-- pages/history/history.wxml -->
+<view class="container" wx:if="{{!loading}}">
+
+  <view class="btn-primary" bindtap="recordNow">记录这次{{mealName}}</view>
+  <view class="text-hint center" wx:if="{{mealType !== 'snack'}}">早/午/晚餐每天只保留最新一条，重复记录会自动替换</view>
+
+  <block wx:if="{{!empty}}">
+    <view class="section-title">之前记录（近 30 天）</view>
+    <block wx:for="{{records}}" wx:key="id">
+      <view class="card record-card" data-id="{{item.id}}" bindtap="toggleExpand">
+        <view class="row-between">
+          <view class="record-date">{{item.date}}</view>
+          <view class="record-score" wx:if="{{item.mealScore !== null}}">{{item.mealScore}} 分</view>
+        </view>
+        <view class="record-kcal">{{item.kcalLow}}-{{item.kcalHigh}} kcal</view>
+        <view class="record-dishes">{{item.dishNames}}</view>
+        <block wx:if="{{item.expanded}}">
+          <view class="dish-detail" wx:for="{{item.dishes}}" wx:key="index">
+            <view class="row-between">
+              <text>{{item.name}}</text>
+              <text class="kcal">{{item.kcalRange}}</text>
+            </view>
+            <view class="text-hint" wx:if="{{item.isEstimate}}">⚠️ 估算值</view>
+          </view>
+        </block>
+        <view class="expand-hint">{{item.expanded ? '收起 ↑' : '展开看明细 ↓'}}</view>
+      </view>
+    </block>
+  </block>
+  <block wx:else>
+    <view class="empty-wrap">
+      <view class="empty-emoji">🍽️</view>
+      <view class="text-hint">这个餐位还没有历史记录</view>
+    </view>
+  </block>
+
+  <view class="compliance-footer">AI 生成内容仅供参考</view>
+</view>
+
+<view class="loading-wrap" wx:else>
+  <text class="text-hint">加载中...</text>
+</view>

@@ -7,6 +7,34 @@
     <view class="text-hint">断签不扣分，明天继续就是胜利 ✌️</view>
   </view>
 
+  <!-- 今日三餐：四宫格 -->
+  <view class="section-title">今日三餐</view>
+  <view class="slot-grid">
+    <block wx:for="{{slots}}" wx:key="type">
+      <view class="slot-cell" data-type="{{item.type}}" bindtap="tapSlot">
+        <view class="slot-emoji">{{item.emoji}}</view>
+        <view class="slot-name">{{item.name}}</view>
+        <block wx:if="{{item.logged}}">
+          <view class="slot-info">{{item.dishCount}} 道菜</view>
+          <view class="slot-kcal">{{item.kcalText}}</view>
+        </block>
+        <block wx:else>
+          <view class="slot-empty">待记录 +</view>
+        </block>
+      </view>
+    </block>
+  </view>
+  <view class="text-hint center">点格子查看该餐位的历史记录</view>
+
+  <!-- 每日打卡提醒 -->
+  <view class="card row-between">
+    <view>
+      <view class="card-title">每日打卡提醒</view>
+      <view class="text-hint">{{reminderOn ? '已开启：当天没记录，晚上 8 点微信提醒你' : '当天没打开小程序，晚上 8 点微信提醒你打卡'}}</view>
+    </view>
+    <view class="switch-btn {{reminderOn ? 'on' : ''}}" bindtap="toggleReminder">{{reminderOn ? '已开启' : '开启'}}</view>
+  </view>
+
   <view class="card">
     <view class="cal-header">
       <view class="cal-nav" bindtap="prevMonth">‹</view>

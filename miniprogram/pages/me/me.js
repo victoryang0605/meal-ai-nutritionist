@@ -68,6 +68,14 @@ Page({
     wx.navigateTo({ url: '/pages/disclaimer/disclaimer' });
   },
 
+  goAgreement() {
+    wx.navigateTo({ url: '/pages/agreement/agreement' });
+  },
+
+  goPrivacy() {
+    wx.navigateTo({ url: '/pages/privacy/privacy' });
+  },
+
   goWeight() {
     wx.navigateTo({ url: '/pages/weight/weight' });
   },

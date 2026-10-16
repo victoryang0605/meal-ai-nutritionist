@@ -1,0 +1,15 @@
+<!-- pages/privacy/privacy.wxml -->
+<view class="container">
+  <view class="card">
+    <view class="card-title">隐私保护指引</view>
+    <view class="para">「三餐有数」尊重并保护你的个人信息。以下是我们收集、使用数据的方式：</view>
+    <view class="para"><text class="hl">一、我们收集什么。</text>为提供服务，我们会收集：微信昵称与头像（你主动提供）、身体画像信息（身高、体重、年龄、性别、活动量，用于计算热量目标）、你拍摄或上传的餐食照片、饮食记录与体重记录。</view>
+    <view class="para"><text class="hl">二、用来做什么。</text>上述数据仅用于向你本人提供 AI 营养分析、饮食打卡与体重曲线服务，<text class="hl">不会用于其他用途</text>。</view>
+    <view class="para"><text class="hl">三、如何存储。</text>数据存储在我们租用的云服务器数据库中；餐食照片经 AI 分析后按需保留用于展示你的饮食记录。我们采取合理的技术措施保障数据安全。</view>
+    <view class="para"><text class="hl">四、是否共享。</text>我们<text class="hl">不会</text>将你的个人信息出售或共享给第三方；仅在微信登录等必需环节与微信平台交互，且只传递完成该功能所需的最少信息。</view>
+    <view class="para"><text class="hl">五、你的权利。</text>你可以在「我的」中查看画像信息；如需更正或删除个人数据、注销账号，可通过小程序内反馈联系我们，我们将在合理期限内处理。</view>
+    <view class="para"><text class="hl">六、未成年人。</text>我们不会主动向未成年人推荐极端饮食方案；监护人可代未成年人行使上述权利。</view>
+    <view class="para"><text class="hl">七、变更。</text>本指引更新时将在小程序内提示，继续使用即视为同意更新后的指引。</view>
+    <view class="para sign">三餐有数</view>
+  </view>
+</view>

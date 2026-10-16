@@ -7,7 +7,8 @@
     <view class="big-num">{{intakeLow}}-{{intakeHigh}}<text class="unit"> kcal</text></view>
     <view class="budget-text">{{budgetText}}</view>
     <view class="progress-track"><view class="progress-fill" style="width: {{progressPct}}%"></view></view>
-    <view class="text-hint" wx:if="{{progressPct >= 100}}">已达到今日目标上限，晚上吃清淡点吧 🙂</view>
+    <view class="over-limit" wx:if="{{overLimit}}">⚠️ 今日热量已达目标上限</view>
+    <view class="text-hint" wx:if="{{overLimit}}">晚上吃清淡点吧 🙂</view>
   </view>
 
   <!-- 控糖模式：升糖风险优先 -->

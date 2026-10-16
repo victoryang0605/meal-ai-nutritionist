@@ -205,6 +205,19 @@ export async function initDB() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
+    // 每日打卡提醒订阅：用户在小程序端通过 wx.requestSubscribeMessage 授权一次，
+    // 后端凭该授权在当日 20:00 发送订阅消息。used=1 表示当日已发送（防重复）；
+    // 定时任务每天开始时先把 used 重置为 0（一次性订阅授权发一次即消耗，用户需
+    // 重新打开小程序授权才能继续收到提醒，这是微信平台的限制）。
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS reminder_subscriptions (
+        user_id       VARCHAR(64) PRIMARY KEY,
+        subscribed_at BIGINT NOT NULL,
+        used          TINYINT(1) NOT NULL DEFAULT 0,
+        updated_at    BIGINT NOT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
     // 为开发测试账号预置 demo 订单（仅当环境变量 DEV_USER 配置时）
     if (process.env.DEV_USER) {
       const testOpenid = 'dev_test_' + process.env.DEV_USER;
@@ -768,3 +781,67 @@ export async function getWeightLogs(userId: string, days: number) {
     .reverse();
 }
 
+
+/** 删除某用户某日某餐位的全部记录（早/午/晚餐多次记录时自动删除前次） */
+export async function deleteDietLogsByDateMeal(userId: string, logDate: string, mealType: string) {
+  const [res] = await getPool().execute(
+    'DELETE FROM diet_logs WHERE user_id = ? AND log_date = ? AND meal_type = ?',
+    [userId, logDate, mealType]
+  ) as any;
+  return res.affectedRows || 0;
+}
+
+/** 某餐位历史记录（按日期倒序，最近 N 天） */
+export async function getDietLogHistory(userId: string, mealType: string, days: number) {
+  const [rows] = await getPool().execute(
+    'SELECT id, log_date, dishes_json, kcal_low, kcal_high, meal_score FROM diet_logs WHERE user_id = ? AND meal_type = ? ORDER BY log_date DESC LIMIT ?',
+    [userId, mealType, days]
+  ) as any;
+  return rows.map((r: any) => ({
+    id: r.id,
+    log_date: fmtDate(r.log_date),
+    dishes: (() => { try { return JSON.parse(r.dishes_json || '[]'); } catch { return []; } })(),
+    kcal_low: r.kcal_low, kcal_high: r.kcal_high,
+    meal_score: r.meal_score,
+  }));
+}
+
+// ============================================================
+// 每日打卡提醒订阅
+// ============================================================
+
+/** 记录/更新订阅（重新授权后 used 重置为 0，允许当日再次发送） */
+export async function upsertReminderSubscription(userId: string) {
+  const now = Date.now();
+  await getPool().execute(
+    `INSERT INTO reminder_subscriptions (user_id, subscribed_at, used, updated_at)
+     VALUES (?, ?, 0, ?)
+     ON DUPLICATE KEY UPDATE used = 0, updated_at = VALUES(updated_at)`,
+    [userId, now, now]
+  );
+}
+
+/** 当日提醒候选：已订阅(used=0) 且当日无任何饮食记录的用户 */
+export async function getReminderCandidates(logDate: string) {
+  const [rows] = await getPool().execute(
+    `SELECT rs.user_id FROM reminder_subscriptions rs
+     WHERE rs.used = 0 AND NOT EXISTS (
+       SELECT 1 FROM diet_logs dl WHERE dl.user_id = rs.user_id AND dl.log_date = ?
+     )`,
+    [logDate]
+  ) as any;
+  return rows.map((r: any) => r.user_id as string);
+}
+
+/** 标记已发送（当日不再重复提醒） */
+export async function markReminderUsed(userId: string) {
+  await getPool().execute(
+    'UPDATE reminder_subscriptions SET used = 1, updated_at = ? WHERE user_id = ?',
+    [Date.now(), userId]
+  );
+}
+
+/** 每天定时任务开始时重置（新的一天重新允许发送） */
+export async function resetReminderUsed() {
+  await getPool().execute('UPDATE reminder_subscriptions SET used = 0');
+}

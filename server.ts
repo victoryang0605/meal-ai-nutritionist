@@ -20,6 +20,7 @@ import dotenv from 'dotenv';
 import * as DB from './src/db.js';
 import * as RL from './src/rate-limit.js';
 import * as MEAL from './src/meal.js';
+import cron from 'node-cron';
 
 dotenv.config();
 
@@ -81,6 +82,87 @@ function wxRequestJson(url: string, timeoutMs = 20000, opts?: { method?: string;
     req.on('timeout', () => req.destroy(new Error('微信接口请求超时')));
     req.on('error', (e: any) => reject(e));
   });
+}
+
+// ============================================================
+// 微信订阅消息（每日打卡提醒）
+// ------------------------------------------------------------
+// 模板 ID 从环境变量 REMINDER_TEMPLATE_ID 读取。
+// TODO(模板对齐): Victor 在小程序后台申请到真实「打卡提醒」订阅消息模板后，
+//   1. 把模板 ID 填到 REMINDER_TEMPLATE_ID 环境变量；
+//   2. 按模板实际字段名/类型调整下方 data（thing1/time2/thing3 为占位写法）。
+// ============================================================
+const REMINDER_TEMPLATE_ID = () => env('REMINDER_TEMPLATE_ID');
+
+// access_token 内存缓存（提前 200 秒刷新，避免临界过期）
+let wxAccessToken = '';
+let wxAccessTokenExpiresAt = 0;
+
+async function getWxAccessToken(): Promise<string> {
+  if (wxAccessToken && Date.now() < wxAccessTokenExpiresAt - 200000) return wxAccessToken;
+  if (!WX_APPID() || !WX_SECRET()) throw new Error('服务端未配置 WX_APPID / WX_SECRET');
+  const url =
+    `https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential` +
+    `&appid=${encodeURIComponent(WX_APPID())}&secret=${encodeURIComponent(WX_SECRET())}`;
+  const data: any = await wxRequestJson(url);
+  if (!data.access_token) throw new Error(`获取 access_token 失败：${data.errcode || ''} ${data.errmsg || ''}`);
+  wxAccessToken = data.access_token;
+  wxAccessTokenExpiresAt = Date.now() + (Number(data.expires_in) || 7200) * 1000;
+  return wxAccessToken;
+}
+
+/** 发送一条打卡提醒订阅消息。成功返回 true，失败抛错。 */
+async function sendSubscribeMessage(openid: string, dateStr: string): Promise<boolean> {
+  const templateId = REMINDER_TEMPLATE_ID();
+  if (!templateId) throw new Error('REMINDER_TEMPLATE_ID 未配置');
+  const token = await getWxAccessToken();
+  const data: any = await wxRequestJson(
+    `https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=${encodeURIComponent(token)}`,
+    20000,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        touser: openid,
+        template_id: templateId,
+        page: 'pages/checkin/checkin',
+        miniprogram_state: 'formal',
+        data: {
+          thing1: { value: '三餐打卡提醒' },
+          time2: { value: `${dateStr} 20:00` },
+          thing3: { value: '今天还没有记录三餐，拍一张看看吃得怎么样吧' },
+        },
+      }),
+    }
+  );
+  if (data.errcode !== 0) throw new Error(`订阅消息发送失败：${data.errcode} ${data.errmsg || ''}`);
+  return true;
+}
+
+/** 每日 20:00（Asia/Shanghai）定时任务：给当日无记录且已订阅的用户发提醒 */
+async function runDailyReminder() {
+  const dateStr = MEAL.shanghaiDate();
+  try {
+    if (!REMINDER_TEMPLATE_ID()) {
+      console.log('[reminder] REMINDER_TEMPLATE_ID 未配置，跳过本次提醒');
+      return;
+    }
+    // 新的一天：重置 used，允许重新发送（一次性订阅授权发一次即消耗）
+    await DB.resetReminderUsed();
+    const candidates = await DB.getReminderCandidates(dateStr);
+    console.log(`[reminder] ${dateStr} 候选用户 ${candidates.length} 人`);
+    for (const openid of candidates) {
+      try {
+        await sendSubscribeMessage(openid, dateStr);
+        await DB.markReminderUsed(openid);
+        console.log(`[reminder] 已发送: ${openid.slice(0, 8)}***`);
+      } catch (err: any) {
+        console.error(`[reminder] 发送失败 ${openid.slice(0, 8)}***:`, err?.message);
+      }
+    }
+  } catch (err: any) {
+    console.error('[reminder] 定时任务异常:', err?.message);
+  }
 }
 
 // ============================================================
@@ -615,6 +697,13 @@ async function startServer() {
       const fiber = sumRange('fiber_g');
       const meal_score = Number.isInteger(analysis.meal_score) ? analysis.meal_score : null;
 
+      // 需求：早/午/晚餐每日只能记一次，多次记录自动删除前次；加餐可记多次
+      let replaced = false;
+      if (meal_type === 'breakfast' || meal_type === 'lunch' || meal_type === 'dinner') {
+        const n = await DB.deleteDietLogsByDateMeal(openid, log_date, meal_type);
+        replaced = n > 0;
+      }
+
       const id = await DB.insertDietLog(openid, {
         log_date, meal_type, persona,
         image_url: typeof b.image_url === 'string' ? b.image_url : '',
@@ -628,7 +717,7 @@ async function startServer() {
         suggestion: typeof analysis.suggestion === 'string' ? analysis.suggestion : null,
         glycemic_risk: p === 'glycemic' && typeof analysis.glycemic_risk === 'string' ? analysis.glycemic_risk : null,
       });
-      res.json({ id, log_date, meal_type });
+      res.json({ id, log_date, meal_type, replaced });
     } catch (err: any) {
       console.error('[diet-log POST]', err?.message);
       res.status(500).json({ error: '保存饮食记录失败，请稍后再试' });
@@ -672,6 +761,25 @@ async function startServer() {
     }
   });
 
+  // 某餐位历史记录（点击餐位格子查看之前记录）
+  app.get('/api/diet-log/history', async (req, res) => {
+    const openid = await requireOpenid(req, res);
+    if (!openid) return;
+    try {
+      const meal_type = typeof req.query.meal_type === 'string' ? req.query.meal_type : '';
+      if (!MEAL.MEAL_TYPES.includes(meal_type as any)) {
+        return res.status(400).json({ error: 'meal_type 非法（breakfast|lunch|dinner|snack）' });
+      }
+      let days = Number(req.query.days);
+      if (!Number.isInteger(days) || days < 1 || days > 365) days = 30;
+      const records = await DB.getDietLogHistory(openid, meal_type, days);
+      res.json({ meal_type, days, records });
+    } catch (err: any) {
+      console.error('[diet-log/history GET]', err?.message);
+      res.status(500).json({ error: '读取餐位历史失败，请稍后再试' });
+    }
+  });
+
   // ---------- 体重记录 ----------
 
   // 记录体重（同一天重复则覆盖）
@@ -708,6 +816,21 @@ async function startServer() {
     }
   });
 
+  // ---------- 每日打卡提醒订阅 ----------
+
+  // 用户在小程序端 wx.requestSubscribeMessage 授权后调用（login 必需）
+  app.post('/api/reminder/subscribe', async (req, res) => {
+    const openid = await requireOpenid(req, res);
+    if (!openid) return;
+    try {
+      await DB.upsertReminderSubscription(openid);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error('[reminder/subscribe POST]', err?.message);
+      res.status(500).json({ error: '订阅失败，请稍后再试' });
+    }
+  });
+
   // ============================================================
   // 虚拟支付路由（会员/次数包）：参考 vibeshot 的 /api/virtual-pay/* 实现
   //
@@ -732,6 +855,10 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 3000;
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`[三餐有数] Server running on http://localhost:${PORT}`);
+    // 每日 20:00（Asia/Shanghai）打卡提醒定时任务
+    // 注意：云托管若部署多实例会重复发送；当前为单实例部署
+    cron.schedule('0 20 * * *', runDailyReminder, { timezone: 'Asia/Shanghai' });
+    console.log('[三餐有数] 每日打卡提醒定时任务已启动（每天 20:00 Asia/Shanghai）');
     if (DEEPSEEK_API_KEY()) {
       console.log(`[三餐有数] DeepSeek: 模型=${DEEPSEEK_CHAT_MODEL()} 端点=${DEEPSEEK_BASE_URL()}`);
     } else {

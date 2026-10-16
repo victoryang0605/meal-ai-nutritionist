@@ -43,3 +43,19 @@
   font-size: 26rpx;
   margin-top: 8rpx;
 }
+
+/* 步骤3：昵称头像 */
+.profile-card { text-align: center; }
+.avatar-btn {
+  width: 140rpx; height: 140rpx; border-radius: 50%;
+  padding: 0; margin: 8rpx auto; overflow: hidden;
+  background: #eef2ee; border: none;
+}
+.avatar-btn::after { border: none; }
+.avatar-img { width: 140rpx; height: 140rpx; border-radius: 50%; }
+.avatar-placeholder {
+  width: 140rpx; height: 140rpx; border-radius: 50%;
+  background: #eef2ee; font-size: 64rpx; line-height: 140rpx; text-align: center;
+}
+.nick-input { text-align: left; margin-top: 8rpx; }
+.link-inline { color: #07c160; }

@@ -73,3 +73,12 @@
   align-items: center;
 }
 .arrow { font-size: 48rpx; color: #c9cec9; }
+
+/* 热量超限醒目提示 */
+.over-limit {
+  color: #e64340;
+  font-weight: 700;
+  font-size: 36rpx;
+  margin-top: 16rpx;
+  text-align: center;
+}

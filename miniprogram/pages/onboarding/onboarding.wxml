@@ -24,7 +24,7 @@
   </block>
 
   <!-- 步骤2：填身体数据 -->
-  <block wx:else>
+  <block wx:elif="{{step === 2}}">
     <view class="hero">
       <view class="hero-title">{{persona === 'glycemic' ? '控糖档案' : '减脂档案'}}</view>
       <view class="hero-sub">用来计算你的每日热量目标，只存你自己手机关联的账号下</view>
@@ -61,8 +61,46 @@
       <view class="link" bindtap="goDisclaimer">查看完整免责声明 →</view>
     </view>
 
-    <view class="btn-primary {{submitting ? 'disabled' : ''}}" bindtap="submit">开始使用</view>
+    <view class="btn-primary" bindtap="nextStep">下一步</view>
     <view class="back-link" bindtap="backStep">← 重新选择画像</view>
+
+    <view class="compliance-footer">AI 生成内容仅供参考，不构成医疗建议</view>
+  </block>
+
+  <!-- 步骤3：昵称头像 + 协议 -->
+  <block wx:else>
+    <view class="hero">
+      <view class="hero-title">最后一步</view>
+      <view class="hero-sub">设置你的昵称和头像，完善账号信息</view>
+    </view>
+
+    <view class="card profile-card">
+      <button class="avatar-btn" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar">
+        <block wx:if="{{avatarUrl}}">
+          <image class="avatar-img" src="{{avatarUrl}}" mode="aspectFill" />
+        </block>
+        <block wx:else>
+          <view class="avatar-placeholder">🙂</view>
+        </block>
+      </button>
+      <view class="text-hint">点击更换头像</view>
+      <view class="form-label">昵称</view>
+      <input class="form-input nick-input" type="nickname" placeholder="请输入微信昵称"
+             bindchange="onNickname" value="{{nickName}}" />
+    </view>
+
+    <view class="card">
+      <label class="disclaimer-row" bindtap="toggleAgreement">
+        <checkbox checked="{{agreementAck}}" color="#07c160" />
+        <text>我已阅读并同意
+          <text class="link-inline" bindtap="goAgreement">《用户服务协议》</text>
+          <text class="link-inline" bindtap="goPrivacy">《隐私保护指引》</text>
+        </text>
+      </label>
+    </view>
+
+    <view class="btn-primary {{submitting ? 'disabled' : ''}}" bindtap="submit">开始使用</view>
+    <view class="back-link" bindtap="backStep2">← 返回修改身体数据</view>
 
     <view class="compliance-footer">AI 生成内容仅供参考，不构成医疗建议</view>
   </block>

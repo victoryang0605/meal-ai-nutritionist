@@ -1,0 +1,16 @@
+<!-- pages/agreement/agreement.wxml -->
+<view class="container">
+  <view class="card">
+    <view class="card-title">用户服务协议</view>
+    <view class="para">欢迎使用「三餐有数」。请在使用前仔细阅读本协议，勾选同意即表示你接受全部条款。</view>
+    <view class="para"><text class="hl">一、服务内容。</text>本小程序提供餐食拍照识别、热量与营养素区间估算、饮食记录与打卡、体重曲线、升糖风险提示等 AI 营养信息服务。</view>
+    <view class="para"><text class="hl">二、账号。</text>你通过微信一键登录使用本服务；昵称、头像由你自愿提供，用于账号展示。你应确保提供的信息真实、不冒用他人。</view>
+    <view class="para"><text class="hl">三、AI 生成内容。</text>食物识别、热量估算、评分与建议均由 AI 生成，为区间估算、<text class="hl">仅供参考</text>；烹饪方式与份量差异会导致实际数值有所出入。</view>
+    <view class="para"><text class="hl">四、非医疗服务。</text>本产品<text class="hl">不构成医疗建议、诊断或治疗方案</text>，不提供任何用药、调药、停药或胰岛素使用方面的建议。孕妇、未成年人、糖尿病及慢性病人群调整饮食前请咨询医生或注册营养师。</view>
+    <view class="para"><text class="hl">五、未成年人保护。</text>未满 18 岁用户应在监护人指导下使用；本产品不会向未成年人推荐极端节食方案。</view>
+    <view class="para"><text class="hl">六、合理使用。</text>你不得利用本服务从事违法违规活动，不得批量抓取、滥用接口；我们有权对异常调用限流或封禁。</view>
+    <view class="para"><text class="hl">七、责任限制。</text>体重变化受多种因素影响，本产品<text class="hl">不承诺任何减重效果</text>；因依据 AI 估算自行调整饮食产生的后果由你自行承担。</view>
+    <view class="para"><text class="hl">八、协议变更。</text>我们可能更新本协议，重大变更将在小程序内提示；继续使用即视为接受更新后的协议。</view>
+    <view class="para sign">三餐有数</view>
+  </view>
+</view>

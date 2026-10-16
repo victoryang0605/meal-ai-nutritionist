@@ -12,6 +12,11 @@ const TOKEN_KEY = 'meal_token';
 const PROFILE_KEY = 'meal_profile_cache';
 const CHECKIN_DAYS_KEY = 'meal_checkin_days'; // 本地打卡日期（YYYY-MM-DD 数组）
 
+// 每日打卡提醒订阅消息模板 ID。
+// TODO(模板对齐): Victor 在小程序后台「订阅消息」申请到「打卡提醒」类模板后，
+// 把真实模板 ID 填到这里（替换占位符），并让后端按模板实际字段调整 data 组装。
+const REMINDER_TEMPLATE_ID = 'TEMPLATE_ID_PLACEHOLDER';
+
 // ---------- 基础 ----------
 
 function getToken() {
@@ -50,7 +55,8 @@ fail: (err) => resolve({ ok: false, status: 0, data: null, err})
 // ---------- 登录 ----------
 
 // wx.login → 后端换 token。成功返回 true。
-function wxLogin(nickName) {
+// nickName/avatarUrl：在 onboarding 建档时传入（type="nickname" 输入 + chooseAvatar）。
+function wxLogin(nickName, avatarUrl) {
 return new Promise((resolve) => {
 wx.login({
 success: (lr) => {
@@ -58,7 +64,7 @@ if (!lr.code) { resolve(false); return;}
 wx.request({
 url: API_BASE + '/api/auth/login',
 method: 'POST',
-data: { code: lr.code, nickName: nickName || undefined},
+data: { code: lr.code, nickName: nickName || undefined, avatarUrl: avatarUrl || undefined},
 header: { 'content-type': 'application/json'},
 timeout: 30000,
 success: (res) => {
@@ -219,7 +225,8 @@ quotaExhausted: r.status === 402,
 };
 }
 
-// 确认记录（落库）
+// 确认记录（落库）。早/午/晚餐多次记录会自动替换当日同餐位记录（后端实现），
+// 返回 replaced=true 时前端可提示"已更新"。
 async function saveDietLog({ date, mealType, persona, analysis, imageUrl}) {
 const r = await request('/api/diet-log', {
 method: 'POST',
@@ -231,7 +238,7 @@ image_url: imageUrl || '',
 });
 if (r.ok) {
 markCheckinDay(date); // 本地打卡记一天
-return { ok: true, id: r.data && r.data.id};
+return { ok: true, id: r.data && r.data.id, replaced: !!(r.data && r.data.replaced)};
 }
 return { ok: false, error: (r.data && r.data.error) || '保存失败'};
 }
@@ -256,7 +263,55 @@ dailyKcalHigh: d.target.daily_kcal_high?? null,
 };
 }
 
-// 体重：记录（upsert）/ 曲线
+// 某餐位历史记录（按日期倒序）
+async function getDietLogHistory(mealType, days) {
+const r = await request('/api/diet-log/history?meal_type=' + encodeURIComponent(mealType) +
+'&days=' + (days || 30));
+if (!r.ok || !r.data) return [];
+return (r.data.records || []).map((x) => ({
+id: x.id,
+date: x.log_date || '',
+dishes: (x.dishes || []).map(mapDish),
+kcalLow: x.kcal_low ?? 0,
+kcalHigh: x.kcal_high ?? 0,
+mealScore: x.meal_score ?? null,
+}));
+}
+
+// ---------- 每日打卡提醒（订阅消息） ----------
+// 注意：微信一次性订阅消息发一次即消耗授权，用户需每天打开小程序重新授权
+// 才能持续收到提醒，这是微信平台的限制。
+
+// 引导用户授权订阅消息。返回 {ok}；模板未配置时返回 {ok:false, notConfigured:true}。
+async function subscribeReminder() {
+if (!REMINDER_TEMPLATE_ID || REMINDER_TEMPLATE_ID === 'TEMPLATE_ID_PLACEHOLDER') {
+wx.showToast({ title: '提醒模板待配置', icon: 'none' });
+return { ok: false, notConfigured: true};
+}
+return new Promise((resolve) => {
+wx.requestSubscribeMessage({
+tmplIds: [REMINDER_TEMPLATE_ID],
+success: async (res) => {
+if (res[REMINDER_TEMPLATE_ID] === 'accept') {
+const r = await request('/api/reminder/subscribe', { method: 'POST' });
+if (r.ok) {
+wx.setStorageSync('meal_reminder_on', true);
+resolve({ ok: true });
+} else {
+resolve({ ok: false, error: '订阅记录失败' });
+}
+} else {
+resolve({ ok: false, denied: true});
+}
+},
+fail: () => resolve({ ok: false}),
+});
+});
+}
+
+function isReminderOn() {
+try { return !!wx.getStorageSync('meal_reminder_on'); } catch (_) { return false;}
+}
 async function saveWeight({ date, weightKg}) {
 const r = await request('/api/weight-log', {
 method: 'POST',
@@ -317,6 +372,7 @@ String(n.getDate()).padStart(2, '0');
 
 module.exports = {
 API_BASE,
+REMINDER_TEMPLATE_ID,
 request,
 wxLogin,
 ensureLogin,
@@ -327,6 +383,9 @@ getProfile,
 mealAnalyze,
 saveDietLog,
 getDietLog,
+getDietLogHistory,
+subscribeReminder,
+isReminderOn,
 saveWeight,
 getWeightCurve,
 markCheckinDay,

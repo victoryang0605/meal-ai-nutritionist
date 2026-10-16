@@ -123,10 +123,33 @@ Page({
     wx.hideLoading();
     this.setData({ saving: false });
     if (r.ok) {
-      wx.showToast({ title: '已记录', icon: 'success' });
+      const msg = r.replaced ? '已更新今日这餐记录' : '已记录';
+      wx.showToast({ title: msg, icon: 'success' });
       setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 600);
+      this.maybePromptReminder();
     } else {
       wx.showToast({ title: r.error || '保存失败', icon: 'none' });
     }
+  },
+
+  // 记录成功后：每天首次引导一次订阅消息（已开启则跳过）
+  maybePromptReminder() {
+    if (api.isReminderOn()) return;
+    const key = 'meal_reminder_prompt_' + api.todayStr();
+    try {
+      if (wx.getStorageSync(key)) return;
+      wx.setStorageSync(key, true);
+    } catch (_) { /* ignore */ }
+    wx.showModal({
+      title: '开启每日打卡提醒？',
+      content: '当天没记录三餐，晚上 8 点微信提醒你，不错过打卡。',
+      confirmText: '开启',
+      cancelText: '不用',
+      success: async (m) => {
+        if (!m.confirm) return;
+        const r = await api.subscribeReminder();
+        if (r.ok) wx.showToast({ title: '已开启每日提醒', icon: 'success' });
+      },
+    });
   },
 });
