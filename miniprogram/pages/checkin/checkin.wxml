@@ -44,13 +44,13 @@
     <view class="cal-week">
       <text>日</text><text>一</text><text>二</text><text>三</text><text>四</text><text>五</text><text>六</text>
     </view>
-    <block wx:for="{{weeks}}" wx:key="index">
+    <block wx:for="{{weeks}}" wx:key="index" wx:for-item="week">
       <view class="cal-row">
-        <block wx:for="{{item.days}}" wx:key="index">
-          <view class="cal-cell {{it && it.isToday ? 'today' : ''}}">
-            <block wx:if="{{it}}">
-              <text>{{it.day}}</text>
-              <view class="dot" wx:if="{{it.checked}}"></view>
+        <block wx:for="{{week.days}}" wx:key="index" wx:for-item="day">
+          <view class="cal-cell {{day && day.isToday ? 'today' : ''}}">
+            <block wx:if="{{day}}">
+              <text class="cal-day">{{day.day}}</text>
+              <view class="dot" wx:if="{{day.checked}}"></view>
             </block>
           </view>
         </block>

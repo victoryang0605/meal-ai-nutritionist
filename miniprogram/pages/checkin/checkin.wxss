@@ -18,19 +18,37 @@
   flex: 1; text-align: center; font-size: 24rpx; color: #b0b5b0; padding: 8rpx 0;
 }
 .cal-cell {
-  flex: 1; text-align: center; font-size: 30rpx;
-  padding: 16rpx 0 10rpx; position: relative;
+  flex: 1;
+  /* 纵向 flex：日期数字在上、打卡绿点在下，间距稳定不随 today 态跳动 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12rpx 0;
+  position: relative;
+  box-sizing: border-box;
 }
-.cal-cell.today text {
-  background: #07c160; color: #fff;
-  border-radius: 50%; width: 56rpx; height: 56rpx;
-  display: inline-flex; align-items: center; justify-content: center;
+/* 日期数字：今天是绿底白字圆，普通日是透明底灰字 */
+.cal-day {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  border-radius: 50%;
+  color: #2c2c2a;
+  line-height: 1;
 }
+.cal-cell.today .cal-day { background: #07c160; color: #fff; }
+/* 已打卡：小绿点。父级是 flex 列容器，用 align-self 居中（margin:auto 会失效） */
 .cal-cell .dot {
-  width: 12rpx; height: 12rpx; border-radius: 50%;
-  background: #07c160; margin: 4rpx auto 0;
+  width: 10rpx; height: 10rpx; border-radius: 50%;
+  background: #07c160;
+  margin-top: 6rpx;
+  flex-shrink: 0;
 }
-.month-count { text-align: center; font-size: 26rpx; color: #8a8f8a; margin-top: 16rpx; }
+/* 今日且已打卡：绿底上的点改用白色，保证可见 */
+.cal-cell.today .dot { background: #fff; }
+.month-count { text-align: center; font-size: 26rpx; color: #8a8f8a; margin-top: 20rpx; }
 
 /* 今日三餐四宫格 */
 .slot-grid {
