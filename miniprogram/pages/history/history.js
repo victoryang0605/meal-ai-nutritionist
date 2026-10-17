@@ -27,8 +27,15 @@ Page({
     const okLogin = await api.ensureLogin();
     if (!okLogin) { this.setData({ loading: false }); return; }
     const list = await api.getDietLogHistory(this.data.mealType, 30);
+    // 透传 AI 诊断字段给模板；数组兜底为空数组，
+    // 否则 wx:if="{{item.highlights.length}}" 在字段缺失时会报错
     const records = list.map((r) => Object.assign({}, r, {
       dishNames: r.dishes.map((d) => d.name).join('、') || '（无菜品明细）',
+      highlights: Array.isArray(r.highlights) ? r.highlights : [],
+      warnings: Array.isArray(r.warnings) ? r.warnings : [],
+      suggestion: r.suggestion || '',
+      giNotes: r.giNotes || '',
+      mealOrderTip: r.mealOrderTip || '',
       expanded: false,
     }));
     this.setData({ records, loading: false, empty: records.length === 0 });

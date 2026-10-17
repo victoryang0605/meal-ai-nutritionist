@@ -309,7 +309,7 @@ dailyKcalHigh: d.target.daily_kcal_high?? null,
 };
 }
 
-// 某餐位历史记录（按日期倒序）
+// 某餐位历史记录（按日期倒序）—— 含 AI 解读详情
 async function getDietLogHistory(mealType, days) {
   const r = await request('/api/diet-log/history?meal_type=' + encodeURIComponent(mealType) +
     '&days=' + (days || 30));
@@ -317,10 +317,18 @@ async function getDietLogHistory(mealType, days) {
   return (r.data.records || []).map((x) => ({
     id: x.id,
     date: x.log_date || '',
+    persona: x.persona || 'takeout',
     dishes: (x.dishes || []).map(mapDish),
     kcalLow: x.kcal_low ?? 0,
     kcalHigh: x.kcal_high ?? 0,
     mealScore: x.meal_score ?? null,
+    // AI 诊断详情（历史回看）
+    suggestion: x.suggestion || '',
+    highlights: Array.isArray(x.highlights) ? x.highlights : [],
+    warnings: Array.isArray(x.warnings) ? x.warnings : [],
+    glycemicRisk: x.glycemic_risk || null,
+    giNotes: x.gi_notes || '',
+    mealOrderTip: x.meal_order_tip || '',
   }));
 }
 

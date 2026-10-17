@@ -15,12 +15,58 @@
         <view class="record-kcal">{{item.kcalLow}}-{{item.kcalHigh}} kcal</view>
         <view class="record-dishes">{{item.dishNames}}</view>
         <block wx:if="{{item.expanded}}">
-          <view class="dish-detail" wx:for="{{item.dishes}}" wx:key="index">
+          <!-- 菜品明细：内层循环显式命名，避免遮蔽外层 item -->
+          <view class="dish-detail" wx:for="{{item.dishes}}" wx:for-item="dish" wx:key="index">
             <view class="row-between">
-              <text>{{item.name}}</text>
-              <text class="kcal">{{item.kcalRange}}</text>
+              <text>{{dish.name}}</text>
+              <text class="kcal">{{dish.kcalRange}}</text>
             </view>
-            <view class="text-hint" wx:if="{{item.isEstimate}}">⚠️ 估算值</view>
+            <view class="text-hint" wx:if="{{dish.isEstimate}}">⚠️ 估算值</view>
+          </view>
+
+          <!-- AI 诊断详情（2026-10-17）：落库后回看完整解读 -->
+          <view class="ai-block">
+
+            <!-- 升糖风险（仅控糖画像） -->
+            <view class="risk-line" wx:if="{{item.glycemicRisk}}">
+              <text class="risk-badge risk-{{item.glycemicRisk === '高' ? 'high' : item.glycemicRisk === '中' ? 'mid' : 'low'}}">
+                升糖风险 {{item.glycemicRisk}}
+              </text>
+            </view>
+
+            <!-- AI 建议 -->
+            <view class="ai-section" wx:if="{{item.suggestion}}">
+              <view class="ai-label">AI 建议</view>
+              <view class="ai-text">{{item.suggestion}}</view>
+            </view>
+
+            <!-- 亮点 -->
+            <view class="ai-section" wx:if="{{item.highlights.length}}">
+              <view class="ai-label">这餐的优点</view>
+              <view class="ai-item" wx:for="{{item.highlights}}" wx:for-item="h" wx:key="index">
+                <text class="ai-bullet good">·</text><text>{{h}}</text>
+              </view>
+            </view>
+
+            <!-- 警示 -->
+            <view class="ai-section" wx:if="{{item.warnings.length}}">
+              <view class="ai-label">需要注意</view>
+              <view class="ai-item" wx:for="{{item.warnings}}" wx:for-item="w" wx:key="index">
+                <text class="ai-bullet warn">!</text><text>{{w}}</text>
+              </view>
+            </view>
+
+            <!-- 控糖：升糖说明与进食顺序 -->
+            <view class="ai-section" wx:if="{{item.giNotes}}">
+              <view class="ai-label">升糖说明</view>
+              <view class="ai-text">{{item.giNotes}}</view>
+            </view>
+            <view class="ai-section" wx:if="{{item.mealOrderTip}}">
+              <view class="ai-label">建议这样吃</view>
+              <view class="ai-text">{{item.mealOrderTip}}</view>
+            </view>
+
+            <view class="ai-tag">以上为 AI 生成内容，仅供参考</view>
           </view>
         </block>
         <view class="expand-hint">{{item.expanded ? '收起 ↑' : '展开看明细 ↓'}}</view>

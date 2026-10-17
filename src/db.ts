@@ -186,11 +186,36 @@ export async function initDB() {
         meal_score    INT DEFAULT NULL,
         suggestion    TEXT,
         glycemic_risk VARCHAR(16) DEFAULT NULL,
+        highlights_json MEDIUMTEXT,          -- AI 亮点（数组，JSON）
+        warnings_json   MEDIUMTEXT,          -- AI 警示（数组，JSON）
+        gi_notes        TEXT,                -- 控糖：升糖指数说明
+        meal_order_tip  TEXT,                -- 控糖：进食顺序建议
         created_at    BIGINT NOT NULL,
         INDEX idx_diet_user_date (user_id, log_date),
         INDEX idx_diet_user_meal (user_id, log_date, meal_type)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+
+    // ---- 幂等迁移：给已存在的表补 AI 解读字段（2026-10-17）----
+    // CREATE TABLE IF NOT EXISTS 不会改动已存在的表，老库需要单独 ALTER。
+    // 先查 information_schema 再决定是否 ALTER，保证重复启动不报错。
+    const aiDiagnosisCols = [
+      ['highlights_json', 'MEDIUMTEXT'],
+      ['warnings_json', 'MEDIUMTEXT'],
+      ['gi_notes', 'TEXT'],
+      ['meal_order_tip', 'TEXT'],
+    ] as const;
+    for (const [col, type] of aiDiagnosisCols) {
+      const [exists] = await conn.execute(
+        `SELECT COUNT(*) as c FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'diet_logs' AND COLUMN_NAME = ?`,
+        [col]
+      ) as any;
+      if (!exists[0].c) {
+        await conn.execute(`ALTER TABLE diet_logs ADD COLUMN ${col} ${type}`);
+        console.log(`[db] diet_logs 已新增列 ${col} ${type}`);
+      }
+    }
 
     // 体重记录：同一天重复记录则覆盖（UNIQUE KEY + upsert）
     await conn.execute(`
@@ -733,6 +758,11 @@ export interface DietLogInput {
   meal_score: number | null;
   suggestion: string | null;
   glycemic_risk: string | null;
+  /** AI 解读补充字段（2026-10-17）：亮点/警示/控糖说明 */
+  highlights?: string[] | null;
+  warnings?: string[] | null;
+  gi_notes?: string | null;
+  meal_order_tip?: string | null;
 }
 
 /**
@@ -748,15 +778,22 @@ export async function insertDietLog(userId: string, input: DietLogInput): Promis
     `INSERT INTO diet_logs
        (user_id, log_date, meal_type, image_url, persona, dishes_json,
         kcal_low, kcal_high, protein_low, protein_high, carb_low, carb_high,
-        fat_low, fat_high, fiber_low, fiber_high, meal_score, suggestion, glycemic_risk, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        fat_low, fat_high, fiber_low, fiber_high, meal_score, suggestion, glycemic_risk,
+        highlights_json, warnings_json, gi_notes, meal_order_tip, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       userId, input.log_date, input.meal_type, '', input.persona,
       JSON.stringify(input.dishes || []),
       input.kcal_low, input.kcal_high,
       input.protein_low, input.protein_high, input.carb_low, input.carb_high,
       input.fat_low, input.fat_high, input.fiber_low, input.fiber_high,
-      input.meal_score, input.suggestion, input.glycemic_risk, Date.now(),
+      input.meal_score, input.suggestion, input.glycemic_risk,
+      // AI 解读补充字段：空数组存'[]' 而非 NULL，前端可直接遍历
+      JSON.stringify(input.highlights || []),
+      JSON.stringify(input.warnings || []),
+      input.gi_notes || null,
+      input.meal_order_tip || null,
+      Date.now(),
     ]
   ) as any;
   return res.insertId;
@@ -788,6 +825,10 @@ export async function getDietLogsByDate(userId: string, logDate: string) {
     meal_score: r.meal_score,
     suggestion: r.suggestion,
     glycemic_risk: r.glycemic_risk,
+    highlights: (() => { try { return JSON.parse(r.highlights_json || '[]'); } catch { return []; } })(),
+    warnings: (() => { try { return JSON.parse(r.warnings_json || '[]'); } catch { return []; } })(),
+    gi_notes: r.gi_notes,
+    meal_order_tip: r.meal_order_tip,
     created_at: Number(r.created_at),
   }));
 }
@@ -844,17 +885,36 @@ export async function deleteDietLogsByDateMeal(userId: string, logDate: string, 
 }
 
 /** 某餐位历史记录（按日期倒序，最近 N 天） */
+/**
+ * 某餐位的历史记录（含 AI 解读详情）
+ *
+ * 2026-10-17 扩展：除菜品与热量外，一并返回 AI 的建议、亮点、警示、
+ * 控糖说明与进食顺序建议，供 history 页展开时展示完整诊断。
+ */
 export async function getDietLogHistory(userId: string, mealType: string, days: number) {
   const [rows] = await getPool().execute(
-    'SELECT id, log_date, dishes_json, kcal_low, kcal_high, meal_score FROM diet_logs WHERE user_id = ? AND meal_type = ? ORDER BY log_date DESC LIMIT ?',
+    `SELECT id, log_date, persona, dishes_json,
+            kcal_low, kcal_high, meal_score, suggestion, glycemic_risk,
+            highlights_json, warnings_json, gi_notes, meal_order_tip
+       FROM diet_logs
+      WHERE user_id = ? AND meal_type = ?
+      ORDER BY log_date DESC
+      LIMIT ?`,
     [userId, mealType, days]
   ) as any;
   return rows.map((r: any) => ({
     id: r.id,
     log_date: fmtDate(r.log_date),
+    persona: r.persona || 'takeout',
     dishes: (() => { try { return JSON.parse(r.dishes_json || '[]'); } catch { return []; } })(),
     kcal_low: r.kcal_low, kcal_high: r.kcal_high,
     meal_score: r.meal_score,
+    suggestion: r.suggestion || '',
+    glycemic_risk: r.glycemic_risk,
+    highlights: (() => { try { return JSON.parse(r.highlights_json || '[]'); } catch { return []; } })(),
+    warnings: (() => { try { return JSON.parse(r.warnings_json || '[]'); } catch { return []; } })(),
+    gi_notes: r.gi_notes || '',
+    meal_order_tip: r.meal_order_tip || '',
   }));
 }
 

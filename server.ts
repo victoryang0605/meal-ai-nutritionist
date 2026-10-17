@@ -753,6 +753,15 @@ async function startServer() {
         meal_score,
         suggestion: typeof analysis.suggestion === 'string' ? analysis.suggestion : null,
         glycemic_risk: p === 'glycemic' && typeof analysis.glycemic_risk === 'string' ? analysis.glycemic_risk : null,
+        // AI 解读补充字段（2026-10-17）：落库后历史页可回看完整诊断
+        highlights: Array.isArray(analysis.highlights)
+          ? analysis.highlights.filter((x: any) => typeof x === 'string').slice(0, 10)
+          : [],
+        warnings: Array.isArray(analysis.warnings)
+          ? analysis.warnings.filter((x: any) => typeof x === 'string').slice(0, 10)
+          : [],
+        gi_notes: p === 'glycemic' && typeof analysis.gi_notes === 'string' ? analysis.gi_notes : null,
+        meal_order_tip: p === 'glycemic' && typeof analysis.meal_order_tip === 'string' ? analysis.meal_order_tip : null,
       });
       res.json({ id, log_date, meal_type, replaced });
     } catch (err: any) {

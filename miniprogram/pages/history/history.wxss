@@ -14,3 +14,60 @@
 .empty-wrap { text-align: center; padding: 120rpx 0; }
 .empty-emoji { font-size: 96rpx; }
 .loading-wrap { text-align: center; padding: 120rpx 0; }
+
+/* ============================================================
+   AI 诊断详情（2026-10-17）
+   历史记录展开后展示：升糖风险 / AI 建议 / 亮点 / 警示 / 控糖说明
+   ============================================================ */
+.ai-block {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #f0f2f0;
+}
+
+.risk-line { margin-bottom: 16rpx; }
+.risk-badge {
+  display: inline-block;
+  font-size: 24rpx;
+  padding: 6rpx 20rpx;
+  border-radius: 24rpx;
+  color: #fff;
+}
+/* risk-badge 是本页自定义类（index 页的同名类不跨页生效） */
+.risk-high { background: #fa5151; }
+.risk-mid  { background: #fa9d3b; }
+.risk-low  { background: #07c160; }
+
+.ai-section { margin-top: 20rpx; }
+.ai-label {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #5f5e5a;
+  margin-bottom: 8rpx;
+}
+.ai-text {
+  font-size: 27rpx;
+  line-height: 1.8;
+  color: #444;
+}
+.ai-item {
+  font-size: 27rpx;
+  line-height: 1.8;
+  color: #444;
+  display: flex;
+  align-items: flex-start;
+}
+.ai-bullet {
+  flex-shrink: 0;
+  width: 30rpx;
+  font-weight: 700;
+}
+.ai-bullet.good { color: #07c160; }
+.ai-bullet.warn { color: #fa9d3b; }
+
+.ai-tag {
+  font-size: 22rpx;
+  color: #b0b5b0;
+  margin-top: 24rpx;
+  text-align: right;
+}
