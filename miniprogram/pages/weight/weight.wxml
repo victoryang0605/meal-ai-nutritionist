@@ -4,7 +4,7 @@
   <view class="card">
     <view class="card-title">今日体重</view>
     <view class="input-row">
-      <input class="weight-input" type="digit" placeholder="如 62.5"
+      <input class="weight-input" type="digit" placeholder="62.5"
              value="{{input}}" bindinput="onInput" />
       <text class="unit">kg</text>
     </view>
