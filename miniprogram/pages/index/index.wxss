@@ -40,20 +40,26 @@
 }
 
 /* 今日三餐 · 2×2 四宫格
-   注意：不要用「width:42% + margin:2%」这种百分比叠加换行，
-   百分比是相对父容器算的，叠加后总宽会溢出导致第三项挤到下一行。
-   这里改用 calc(50% - 间隙/2)，两列严格对齐。 */
+ *
+ * 用 CSS Grid 而不是 flex + calc：
+ * 之前写的是 flex-wrap + width:calc(50% - 8rpx) + :nth-child(odd) margin，
+ * 每行占用 = (50% - 8rpx) × 2 + 16rpx = 恰好 100%，
+ * **正好卡在临界值**，真机像素舍入稍有偏差就溢出 → 每行只放得下 1 个，
+ * 于是四宫格退化成一列（真机复现过）。
+ *
+ * grid 由引擎分配列宽，不会出现临界溢出；且 gap 由引擎处理，
+ * 无需再依赖 :nth-child 选择器（它在 wx:for 渲染下也不够稳）。
+ * 与打卡页 .slot-grid 保持同一套写法。
+ */
 .meal-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
   padding: 0 24rpx;
 }
 .meal-cell {
-  width: calc(50% - 8rpx);
   box-sizing: border-box;
-  padding-bottom: 16rpx;
 }
-.meal-cell:nth-child(odd) { margin-right: 16rpx; }
 
 .meal-card {
   background: #fff;
