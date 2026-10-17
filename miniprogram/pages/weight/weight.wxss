@@ -1,10 +1,28 @@
 /* pages/weight/weight.wxss */
 .container { padding-bottom: 40rpx; }
 
-.input-row { display: flex; align-items: baseline; margin: 12rpx 0; }
+/* baseline 对齐在 input 字号变化时会让 kg 与数字错位，改用 flex-end 更稳定 */
+.input-row { display: flex; align-items: flex-end; margin: 12rpx 0; }
+
+/*
+ * 体重输入框字体修正（2026-10-17）
+ *
+ * 原写法 `font-size:64rpx; font-weight:700` 在 iOS 上有两个问题：
+ *   1. 64rpx（≈32px）已超大字重渲染的字号上限，700 字重会触发字体回退
+ *      （fallback），回退字体的粗体字形更宽，导致数字被裁切显示不全；
+ *   2. input 是原生组件，文字裁切时不会自动缩放。
+ *
+ * 改为常规字重 + 略小字号，既能完整显示，又保留"数字输入"的醒目感。
+ */
 .weight-input {
-  flex: 1; background: #f2f5f2; border-radius: 16rpx;
-  padding: 24rpx; font-size: 64rpx; font-weight: 700; text-align: center;
+  flex: 1;
+  background: #f2f5f2;
+  border-radius: 16rpx;
+  padding: 20rpx;
+  font-size: 56rpx;
+  font-weight: 400;
+  text-align: center;
+  box-sizing: border-box;
 }
 .unit { font-size: 32rpx; color: #8a8f8a; margin-left: 12rpx; }
 
