@@ -16,6 +16,9 @@ Page({
     mealTypeValues: ['breakfast', 'lunch', 'dinner', 'snack'],
     isGlycemic: false,
     saving: false,
+    // 剩余可分析次数（P1-3，来自后端 credits.totalRemaining）
+    remaining: null,
+    remainingText: '',
   },
 
   onLoad() {
@@ -42,10 +45,13 @@ Page({
       ? getApp().globalData.profile.persona : 'takeout';
     const r = await api.mealAnalyze({ imageDataUri: dataUri, persona });
     if (r.ok) {
+      // 图片不落库：这里不缓存原图，服务端识别后即丢弃
       this.setData({
         loading: false,
         analysis: r.analysis,
         medSafetyHit: r.medSafetyHit,
+        remaining: r.remaining,          // 剩余可分析次数（P1-3）
+        remainingText: r.remainingText,
       });
       this.drawScoreRing(r.analysis.mealScore);
     } else {
@@ -114,6 +120,9 @@ Page({
     }
     this.setData({ saving: true });
     wx.showLoading({ title: '记录中...', mask: true });
+
+    // 只落库 AI 给出的建议与估算数据（菜品/热量/营养素/评分/建议）。
+    // 图片不落库：原图仅用于本次识别，服务端内存中转后即丢弃。
     const r = await api.saveDietLog({
       date: api.todayStr(),
       mealType: d.mealType,

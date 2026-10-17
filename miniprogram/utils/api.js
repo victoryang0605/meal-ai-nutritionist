@@ -89,8 +89,21 @@ fail: () => resolve(false)
 
 // 确保已登录（无 token 时自动登录）
 async function ensureLogin() {
-if (getToken()) return true;
-return wxLogin();
+  if (getToken()) return true;
+  return wxLogin();
+}
+
+// 是否已有登录态（有 token 即认为登录过，用于判断新老用户分流）
+function hasSession() {
+  return !!getToken();
+}
+
+// 只读本地画像缓存，不发网络请求。用于登录页快速判断新老用户。
+function getCachedProfile() {
+  const app = getApp();
+  if (app && app.globalData && app.globalData.profile) return app.globalData.profile;
+  const cached = wx.getStorageSync(PROFILE_KEY);
+  return cached && cached.persona ? cached : null;
 }
 
 function logout() {
@@ -158,7 +171,6 @@ return {
 id: l.id,
 date: l.log_date || '',
 mealType: l.meal_type || '',
-imageUrl: l.image_url || '',
 persona: l.persona || 'takeout',
 dishes: (l.dishes || []).map(mapDish),
 kcalLow: l.kcal_low?? 0,
@@ -216,8 +228,18 @@ method: 'POST',
 data: { image: imageDataUri, persona: persona || 'takeout'}
 });
 if (r.ok && r.data && r.data.analysis) {
-return { ok: true, analysis: mapAnalysis(r.data.analysis), medSafetyHit:!!r.data.med_safety_hit};
-}
+    // credits 由后端 consumeCredit 返回，含 totalRemaining / freeRemaining / paidCredits
+    const c = r.data.credits || null;
+    const remaining = c && typeof c.totalRemaining === 'number' ? c.totalRemaining : null;
+    return {
+      ok: true,
+      analysis: mapAnalysis(r.data.analysis),
+      medSafetyHit: !!r.data.med_safety_hit,
+      remaining,
+      credits: c,
+      remainingText: remaining === null ? '' : ('今日还可分析 ' + remaining + ' 次'),
+    };
+  }
 return {
 ok: false, status: r.status,
 error: (r.data && r.data.error) || '分析失败，请重试',
@@ -227,13 +249,17 @@ quotaExhausted: r.status === 402,
 
 // 确认记录（落库）。早/午/晚餐多次记录会自动替换当日同餐位记录（后端实现），
 // 返回 replaced=true 时前端可提示"已更新"。
-async function saveDietLog({ date, mealType, persona, analysis, imageUrl}) {
+//
+// ⚠️ 只落库 AI 给出的建议与估算数据，**不含图片**（2026-10-17 隐私决策）：
+//   用户餐食照片仅用于本次识别，服务端内存中转后即丢弃，不做任何持久化。
+//   image_url 恒为空字符串。
+async function saveDietLog({ date, mealType, persona, analysis}) {
 const r = await request('/api/diet-log', {
 method: 'POST',
 data: {
 log_date: date, meal_type: mealType, persona,
 analysis: analysis._raw || analysis,
-image_url: imageUrl || '',
+image_url: '',
 }
 });
 if (r.ok) {
@@ -265,17 +291,17 @@ dailyKcalHigh: d.target.daily_kcal_high?? null,
 
 // 某餐位历史记录（按日期倒序）
 async function getDietLogHistory(mealType, days) {
-const r = await request('/api/diet-log/history?meal_type=' + encodeURIComponent(mealType) +
-'&days=' + (days || 30));
-if (!r.ok || !r.data) return [];
-return (r.data.records || []).map((x) => ({
-id: x.id,
-date: x.log_date || '',
-dishes: (x.dishes || []).map(mapDish),
-kcalLow: x.kcal_low ?? 0,
-kcalHigh: x.kcal_high ?? 0,
-mealScore: x.meal_score ?? null,
-}));
+  const r = await request('/api/diet-log/history?meal_type=' + encodeURIComponent(mealType) +
+    '&days=' + (days || 30));
+  if (!r.ok || !r.data) return [];
+  return (r.data.records || []).map((x) => ({
+    id: x.id,
+    date: x.log_date || '',
+    dishes: (x.dishes || []).map(mapDish),
+    kcalLow: x.kcal_low ?? 0,
+    kcalHigh: x.kcal_high ?? 0,
+    mealScore: x.meal_score ?? null,
+  }));
 }
 
 // ---------- 每日打卡提醒（订阅消息） ----------
@@ -327,8 +353,24 @@ if (!r.ok ||!r.data) return [];
 return (r.data.points || []).map((p) => ({ date: p.log_date, weightKg: Number(p.weight_kg)}));
 }
 
-// ---------- 本地打卡（MVP：后端暂无按月查询接口，打卡日期记本地） ----------
-// TODO(后端对齐): 未来加 GET /api/diet-log?from=&to= 后，改从服务端拉取。
+// ---------- 打卡日期 ----------
+//
+// 数据源已从「本地 storage」升级为「服务端 diet_logs」：
+// 本地 storage 存在换机丢失、与服务端数据重复的问题。
+// 现在以服务端为准，本地仅作离线兜底（网络失败时仍能看到上次缓存）。
+
+/** 从服务端拉取区间内有记录的日期（打卡日历用）；失败返回 null */
+async function fetchCheckinDays(from, to) {
+  const r = await request('/api/diet-log?from=' + encodeURIComponent(from) +
+    '&to=' + encodeURIComponent(to));
+  if (!r.ok || !r.data || !Array.isArray(r.data.days)) return null;
+  return r.data.days;
+}
+
+/** 用服务端数据覆盖本地缓存 */
+function cacheCheckinDays(days) {
+  try { wx.setStorageSync(CHECKIN_DAYS_KEY, days || []); } catch (_) { /* ignore */ }
+}
 
 function markCheckinDay(date) {
 try {
@@ -347,9 +389,10 @@ return wx.getStorageSync(CHECKIN_DAYS_KEY) || [];
 }
 
 // 连续打卡天数（截至今天或昨天，断签不惩罚只中断连续）
-function calcStreak() {
+function calcStreak(daysInput) {
+const days = Array.isArray(daysInput) ? daysInput : getCheckinDays();
 const set = {};
-getCheckinDays().forEach((d) => { set[d] = true;});
+days.forEach((d) => { set[d] = true;});
 const fmt = (dt) => dt.getFullYear() + '-' +
 String(dt.getMonth() + 1).padStart(2, '0') + '-' +
 String(dt.getDate()).padStart(2, '0');
@@ -384,6 +427,10 @@ mealAnalyze,
 saveDietLog,
 getDietLog,
 getDietLogHistory,
+getCheckinDaysFromServer: fetchCheckinDays,
+cacheCheckinDays,
+getCachedProfile,
+hasSession,
 subscribeReminder,
 isReminderOn,
 saveWeight,

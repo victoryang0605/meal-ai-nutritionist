@@ -30,6 +30,9 @@ appbeian_gov.txt
 xhs_*
 /*调研报告.md
 
+# 微信开发者工具的个人本地配置（含个人 libVersion 与调试偏好，不应入库）
+miniprogram/project.private.config.json
+
 # 环境变量（含密钥！绝不提交）
 .env
 .env.local

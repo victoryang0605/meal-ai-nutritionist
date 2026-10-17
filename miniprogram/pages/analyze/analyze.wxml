@@ -18,6 +18,9 @@
   <!-- 结果 -->
   <block wx:if="{{!loading && analysis}}">
 
+    <!-- 剩余分析次数提示（P1-3） -->
+    <view class="remaining-bar" wx:if="{{remainingText}}">{{remainingText}}</view>
+
     <!-- 评分环 + 餐次 -->
     <view class="card score-row">
       <view class="score-wrap">

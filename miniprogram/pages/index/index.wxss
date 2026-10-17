@@ -39,33 +39,97 @@
   margin: 32rpx 32rpx 8rpx;
 }
 
+/* 今日三餐 · 2×2 四宫格
+   注意：不要用「width:42% + margin:2%」这种百分比叠加换行，
+   百分比是相对父容器算的，叠加后总宽会溢出导致第三项挤到下一行。
+   这里改用 calc(50% - 间隙/2)，两列严格对齐。 */
 .meal-grid {
   display: flex;
   flex-wrap: wrap;
-  padding: 0 16rpx;
+  padding: 0 24rpx;
 }
+.meal-cell {
+  width: calc(50% - 8rpx);
+  box-sizing: border-box;
+  padding-bottom: 16rpx;
+}
+.meal-cell:nth-child(odd) { margin-right: 16rpx; }
+
 .meal-card {
-  width: 42%;
   background: #fff;
   border-radius: 24rpx;
-  margin: 12rpx 2%;
-  padding: 28rpx 24rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.04);
-  min-height: 180rpx;
+  padding: 24rpx 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+  min-height: 240rpx;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
-.meal-emoji { font-size: 48rpx; }
-.meal-name { font-size: 30rpx; font-weight: 600; margin: 6rpx 0; }
-.meal-kcal { font-size: 30rpx; font-weight: 700; color: #07c160; }
-.meal-dish { font-size: 24rpx; color: #8a8f8a; margin-top: 4rpx; }
-.meal-empty { font-size: 26rpx; color: #b0b5b0; margin-top: 12rpx; }
-.risk-dot {
-  display: inline-block;
+.meal-card.is-logged { box-shadow: 0 4rpx 16rpx rgba(7, 193, 96, 0.12); }
+.meal-card:active { opacity: 0.85; }
+
+.meal-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+.meal-emoji { font-size: 36rpx; margin-right: 8rpx; }
+.meal-name { font-size: 28rpx; font-weight: 600; color: #2c2c2a; }
+
+/* 已记录态：热量数值 */
+.meal-kcal {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #07c160;
+  line-height: 1.1;
+  word-break: break-all;
+}
+.meal-kcal .dash { color: #b0b5b0; margin: 0 2rpx; }
+.meal-kcal-unit { font-size: 22rpx; color: #8a8f8a; margin-top: 2rpx; }
+
+.meal-dish {
   font-size: 22rpx;
-  color: #fff;
-  border-radius: 20rpx;
-  padding: 4rpx 16rpx;
+  color: #8a8f8a;
   margin-top: 8rpx;
+  /* 单行超出省略，四宫格内不让长菜名撑破卡片 */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
+
+.meal-tags { display: flex; flex-wrap: wrap; margin-top: 10rpx; }
+.tag {
+  font-size: 20rpx;
+  padding: 3rpx 12rpx;
+  border-radius: 16rpx;
+  margin-right: 8rpx;
+  color: #fff;
+  line-height: 1.4;
+}
+.tag-score { background: #f0f2ef; color: #5f5e5a; }
+
+/* 未记录态：占位 + 号 */
+.meal-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.meal-plus {
+  width: 56rpx;
+  height: 56rpx;
+  line-height: 52rpx;
+  text-align: center;
+  border-radius: 50%;
+  background: #f0f2ef;
+  color: #b0b5b0;
+  font-size: 36rpx;
+  font-weight: 300;
+}
+.meal-empty-text { font-size: 22rpx; color: #b0b5b0; margin-top: 10rpx; }
+
+/* .risk-high/.risk-mid/.risk-low 的配色已在文件上方定义，此处复用 */
 
 .row-between {
   display: flex;

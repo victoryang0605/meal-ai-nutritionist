@@ -13,8 +13,15 @@ Page({
   },
 
   async load() {
+    if (!api.hasSession()) {
+      wx.reLaunch({ url: '/pages/login/login' });
+      return;
+    }
     const okLogin = await api.ensureLogin();
-    if (!okLogin) return;
+    if (!okLogin) {
+      wx.reLaunch({ url: '/pages/login/login' });
+      return;
+    }
     const profile = await api.getProfile();
     if (!profile) {
       wx.redirectTo({ url: '/pages/onboarding/onboarding' });
@@ -87,7 +94,7 @@ Page({
       success: (m) => {
         if (m.confirm) {
           api.logout();
-          wx.reLaunch({ url: '/pages/index/index' });
+          wx.reLaunch({ url: '/pages/login/login' });
         }
       }
     });

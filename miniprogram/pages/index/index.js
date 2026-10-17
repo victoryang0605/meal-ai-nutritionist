@@ -46,14 +46,21 @@ Page({
 
   async load() {
     this.setData({ loading: true });
+    // 没有登录态 → 引导页（login）分流：新用户去建档，老用户一键登录
+    if (!api.hasSession()) {
+      this.setData({ loading: false });
+      wx.reLaunch({ url: '/pages/login/login' });
+      return;
+    }
     const okLogin = await api.ensureLogin();
     if (!okLogin) {
       this.setData({ loading: false });
+      wx.reLaunch({ url: '/pages/login/login' });
       return;
     }
     let profile = await api.getProfile();
     if (!profile) {
-      // 未建档 → 去 onboarding
+      // 已登录但没建档 → 去补建档
       wx.redirectTo({ url: '/pages/onboarding/onboarding' });
       return;
     }
@@ -68,7 +75,8 @@ Page({
       const log = byType[m.type];
       return Object.assign({}, m, {
         logged: !!log,
-        kcalText: log ? (log.kcalLow + '-' + log.kcalHigh + ' kcal') : '',
+        kcalLow: log ? log.kcalLow : 0,
+        kcalHigh: log ? log.kcalHigh : 0,
         score: log ? log.mealScore : null,
         risk: log ? log.glycemicRisk : null,
         firstDish: log && log.dishes.length ? log.dishes[0].name : '',

@@ -33,24 +33,34 @@
     <view class="shoot-sub">拍照识菜品 · 算热量 · 给建议</view>
   </view>
 
-  <!-- 三餐时间线 -->
+  <!-- 今日三餐 · 四宫格（2×2） -->
   <view class="section-title">今日三餐</view>
   <view class="meal-grid">
-    <block wx:for="{{meals}}" wx:key="type">
-      <view class="meal-card" data-type="{{item.type}}" bindtap="tapMeal">
-        <view class="meal-emoji">{{item.emoji}}</view>
-        <view class="meal-name">{{item.name}}</view>
+    <view class="meal-cell" wx:for="{{meals}}" wx:key="type" data-type="{{item.type}}" bindtap="tapMeal">
+      <view class="meal-card {{item.logged ? 'is-logged' : ''}}">
+        <view class="meal-head">
+          <text class="meal-emoji">{{item.emoji}}</text>
+          <text class="meal-name">{{item.name}}</text>
+        </view>
+
         <block wx:if="{{item.logged}}">
-          <view class="meal-kcal">{{item.kcalText}}</view>
-          <view class="meal-dish">{{item.firstDish}}{{item.score !== null ? ' · ' + item.score + '分' : ''}}</view>
-          <view class="risk-dot risk-{{item.risk === '高' ? 'high' : item.risk === '中' ? 'mid' : 'low'}}"
-                wx:if="{{isGlycemic && item.risk}}">{{item.risk}}升糖</view>
+          <view class="meal-kcal">{{item.kcalLow}}<text class="dash">-</text>{{item.kcalHigh}}</view>
+          <view class="meal-kcal-unit">kcal</view>
+          <view class="meal-dish">{{item.firstDish}}</view>
+          <view class="meal-tags">
+            <text class="tag tag-score" wx:if="{{item.score !== null}}">{{item.score}}分</text>
+            <text class="tag risk-{{item.risk === '高' ? 'high' : item.risk === '中' ? 'mid' : 'low'}}" wx:if="{{isGlycemic && item.risk}}">{{item.risk}}升糖</text>
+          </view>
         </block>
+
         <block wx:else>
-          <view class="meal-empty">待记录 +</view>
+          <view class="meal-empty">
+            <text class="meal-plus">+</text>
+            <text class="meal-empty-text">待记录</text>
+          </view>
         </block>
       </view>
-    </block>
+    </view>
   </view>
 
   <!-- 体重快捷入口 -->

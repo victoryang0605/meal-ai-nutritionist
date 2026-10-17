@@ -693,6 +693,7 @@ export interface DietLogInput {
   log_date: string; // YYYY-MM-DD
   meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack';
   persona: 'takeout' | 'glycemic';
+  /** ⚠️ 保留字段但不使用：产品决策为「图片不落库」，见 insertDietLog 注释 */
   image_url?: string;
   dishes: any[];
   kcal_low: number | null;
@@ -710,7 +711,14 @@ export interface DietLogInput {
   glycemic_risk: string | null;
 }
 
-/** 插入一条饮食记录 */
+/**
+ * 插入一条饮食记录
+ *
+ * ⚠️ **图片不落库（2026-10-17 产品决策）**：
+ *   只写入 AI 给出的建议与估算数据（菜品/热量/营养素/评分/建议）。
+ *   image_url 一律写空字符串，即使 input 带了值也不落库 ——
+ *   用户餐食照片属隐私信息，从源头杜绝存储可消除泄露风险。
+ */
 export async function insertDietLog(userId: string, input: DietLogInput): Promise<number> {
   const [res] = await getPool().execute(
     `INSERT INTO diet_logs
@@ -719,7 +727,7 @@ export async function insertDietLog(userId: string, input: DietLogInput): Promis
         fat_low, fat_high, fiber_low, fiber_high, meal_score, suggestion, glycemic_risk, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
-      userId, input.log_date, input.meal_type, input.image_url || '', input.persona,
+      userId, input.log_date, input.meal_type, '', input.persona,
       JSON.stringify(input.dishes || []),
       input.kcal_low, input.kcal_high,
       input.protein_low, input.protein_high, input.carb_low, input.carb_high,
@@ -758,6 +766,26 @@ export async function getDietLogsByDate(userId: string, logDate: string) {
     glycemic_risk: r.glycemic_risk,
     created_at: Number(r.created_at),
   }));
+}
+
+/**
+ * 查询日期区间内有饮食记录的日期列表（打卡日历用）
+ *
+ * 只返回「至少有一条记录」的日期，避免把明细全查出来再过滤。
+ * 打卡绿点以此为准 —— 服务端是唯一数据源，本地 storage 仅作离线兜底。
+ */
+export async function getDietLogDaysInRange(
+  userId: string,
+  from: string,
+  to: string
+): Promise<string[]> {
+  const [rows] = await getPool().execute(
+    `SELECT DISTINCT log_date FROM diet_logs
+      WHERE user_id = ? AND log_date BETWEEN ? AND ?
+      ORDER BY log_date ASC`,
+    [userId, from, to]
+  ) as any;
+  return rows.map((r: any) => fmtDate(r.log_date));
 }
 
 /** 体重记录（同一天重复则覆盖） */

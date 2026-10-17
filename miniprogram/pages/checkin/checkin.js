@@ -1,6 +1,6 @@
 // pages/checkin/checkin.js —— 打卡 tab：今日三餐四宫格 + 月历 + 连续打卡 + 提醒订阅
-// 说明：后端暂无按月查询接口，打卡日期记在本地（utils/api.js markCheckinDay）。
-// TODO(后端对齐): 未来加 GET /api/diet-log?from=&to= 后改从服务端拉取。
+// 数据源：打卡绿点以**服务端 diet_logs** 为准（GET /api/diet-log?from=&to=），
+// 本地 storage 仅在网络失败时兜底，避免换机丢失历史绿点。
 const api = require('../../utils/api.js');
 
 const SLOTS = [
@@ -23,8 +23,34 @@ Page({
   onShow() {
     const now = new Date();
     this.setData({ year: now.getFullYear(), month: now.getMonth(), reminderOn: api.isReminderOn() });
+    // 先用本地缓存秒出，再异步拉服务端覆盖，避免白屏等待
     this.render();
     this.loadSlots();
+    this.loadCheckinDays();
+  },
+
+  // 拉服务端打卡日期（覆盖当前月份 + 上个月，足够算连续天数）
+  async loadCheckinDays() {
+    const { year, month } = this.data;
+    const pad = (n) => String(n).padStart(2, '0');
+    // 从上个月 1 号开始拉，保证跨月连续打卡能正确计算
+    const start = new Date(year, month - 1, 1);
+    const end = new Date(year, month + 1, 0);
+    const from = start.getFullYear() + '-' + pad(start.getMonth() + 1) + '-01';
+    const to = end.getFullYear() + '-' + pad(end.getMonth() + 1) + '-' + pad(end.getDate());
+
+    const days = await api.getCheckinDaysFromServer(from, to);
+    if (days && days.length >= 0) {
+      // 服务端数据为准：合并进本地缓存（保留更早的本地记录，避免旧数据被抹掉）
+      const merged = {};
+      api.getCheckinDays().concat(days).forEach((d) => { merged[d] = true; });
+      const mergedList = Object.keys(merged).sort();
+      api.cacheCheckinDays(mergedList);
+      this.render(mergedList);
+    } else {
+      // 网络失败：用本地缓存兜底，不打断页面
+      this.render();
+    }
   },
 
   // 今日三餐四宫格：从服务端拉当日记录
@@ -74,10 +100,12 @@ Page({
     }
   },
 
-  render() {
+  // 渲染月历。daysInput 传入服务端数据时以其为准，否则用本地缓存兜底。
+  render(daysInput) {
     const { year, month } = this.data;
+    const source = Array.isArray(daysInput) ? daysInput : api.getCheckinDays();
     const checked = {};
-    api.getCheckinDays().forEach((d) => { checked[d] = true; });
+    source.forEach((d) => { checked[d] = true; });
 
     const first = new Date(year, month, 1);
     const startDay = first.getDay(); // 0=周日
@@ -96,9 +124,9 @@ Page({
     for (let i = 0; i < cells.length; i += 7) weeks.push({ days: cells.slice(i, i + 7) });
 
     const monthPrefix = year + '-' + String(month + 1).padStart(2, '0');
-    const monthCount = api.getCheckinDays().filter((d) => d.indexOf(monthPrefix) === 0).length;
+    const monthCount = source.filter((d) => d.indexOf(monthPrefix) === 0).length;
 
-    this.setData({ weeks, streak: api.calcStreak(), monthCount });
+    this.setData({ weeks, streak: api.calcStreak(source), monthCount });
   },
 
   prevMonth() {
@@ -107,6 +135,7 @@ Page({
     if (month < 0) { month = 11; year--; }
     this.setData({ year, month });
     this.render();
+    this.loadCheckinDays();
   },
 
   nextMonth() {
@@ -117,6 +146,7 @@ Page({
     if (year > now.getFullYear() || (year === now.getFullYear() && month > now.getMonth())) return;
     this.setData({ year, month });
     this.render();
+    this.loadCheckinDays();
   },
 
   goShoot() {

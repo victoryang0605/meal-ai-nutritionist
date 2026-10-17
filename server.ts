@@ -663,6 +663,24 @@ async function startServer() {
     }
   });
 
+  // ---------- 餐食图片隐私策略（2026-10-17 产品决策）----------
+  //
+  // ⚠️ **图片不落库，分析完即丢弃。**
+  //
+  // 实现方式：
+  //   客户端把压缩后的图片以 data URI 直接 POST /api/meal-analyze，
+  //   服务端仅在内存中转成 DeepSeek/Agnes 的 vision 消息体，
+  //   **不写磁盘、不上传 OSS、不进数据库**，请求结束即释放。
+  //   diet_logs.image_url 恒为空字符串，只保留 AI 给出的建议与估算数据。
+  //
+  // 因此本项目**不需要** src/oss-image.ts（也未 import）。
+  // src/temp-image-store.ts 同样未使用——那是 vibeshot 的遗留模块，
+  // 第三方 AI 需要公网 URL 时才需要，本项目走 Base64 直传，不涉及。
+  //
+  // 好处：用户餐食照片属于隐私信息，不落库即从源头消除泄露与
+  //       「拍照存云端」的合规风险，隐私协议里也无需声明图像存储。
+  // ============================================================
+
   // ---------- 饮食记录 ----------
 
   // 落库一条饮食记录（客户端可先让用户手动修正 analysis 再提交）
@@ -706,7 +724,8 @@ async function startServer() {
 
       const id = await DB.insertDietLog(openid, {
         log_date, meal_type, persona,
-        image_url: typeof b.image_url === 'string' ? b.image_url : '',
+        // 图片不落库：忽略前端可能传来的 image_url，恒置空
+        image_url: '',
         dishes: analysis.dishes,
         kcal_low: kcal.low, kcal_high: kcal.high,
         protein_low: protein.low, protein_high: protein.high,
@@ -729,8 +748,30 @@ async function startServer() {
     const openid = await requireOpenid(req, res);
     if (!openid) return;
     try {
-      const date = typeof req.query.date === 'string' && MEAL.isValidDate(req.query.date)
-        ? req.query.date : MEAL.shanghaiDate();
+      // 模式一：区间查询（打卡日历用）——传 from & to
+      const q = req.query || {};
+      const hasFrom = typeof q.from === 'string' && MEAL.isValidDate(q.from);
+      const hasTo = typeof q.to === 'string' && MEAL.isValidDate(q.to);
+      if (hasFrom || hasTo) {
+        if (!hasFrom || !hasTo) {
+          return res.status(400).json({ error: 'from 与 to 必须同时提供（YYYY-MM-DD）' });
+        }
+        // 防御：区间上限 400 天，避免拉全表
+        const from = q.from as string;
+        const to = q.to as string;
+        if (from > to) return res.status(400).json({ error: 'from 不能晚于 to' });
+        const spanDays =
+          (Date.parse(to) - Date.parse(from)) / 86400000;
+        if (spanDays > 400) {
+          return res.status(400).json({ error: '查询区间过大（最多 400 天）' });
+        }
+        const days = await DB.getDietLogDaysInRange(openid, from, to);
+        return res.json({ from, to, days });
+      }
+
+      // 模式二：按日查询（首页当日记录）
+      const date = typeof q.date === 'string' && MEAL.isValidDate(q.date)
+        ? q.date : MEAL.shanghaiDate();
       const logs = await DB.getDietLogsByDate(openid, date);
       const sum = (k: string) => logs.reduce((a: number, l: any) => a + (l[k] ?? 0), 0);
       const total = {

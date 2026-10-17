@@ -4,10 +4,18 @@
 
 ## 上线前必做（Victor）
 
-1. **AppID**：`project.config.json` 里的 `appid` 当前是占位符 `wx0000000000000000`，
-   注册新小程序后替换为真实 AppID。
+1. **AppID**：`project.config.json` 里的 `appid` 已配置为真实值。
+   ⚠️ AppSecret 等密钥**只在后端 `.env` / 云托管环境变量**中，绝不入库。
 2. **后端域名**：`utils/api.js` 顶部的 `API_BASE` 已设为 `https://api.cooperelate.com`，把该域名加到小程序后台
    「开发管理 → 开发设置 → 服务器域名」的 request 合法域名里。
+
+## 隐私策略：图片不落库（2026-10-17 定）
+
+用户餐食照片**仅用于当次识别，服务端内存中转后即丢弃** —— 不写磁盘、不上传对象存储、不进数据库。
+`diet_logs.image_url` 恒为空字符串，饮食记录只保存 AI 给出的建议与估算数据。
+
+三道防御：server.ts 路由层恒置空 → db.ts `insertDietLog` 硬编码空串 → 前端不传该字段。
+因此本项目**不需要** `src/oss-image.ts`。
 
 ## 目录结构
 
@@ -44,12 +52,11 @@ miniprogram/
 | diet-log GET: total{}, meals_present{}, target{} | total{kcalLow,kcalHigh} / mealsPresent / target{dailyKcalLow,dailyKcalHigh} |
 | weight-log: points[].log_date / weight_kg | points[].date / weightKg |
 
-## 已知的待对齐项（后端 W2 分支尚未合并）
+## 已完成的待对齐项（原先的后端 W2 分支已合并到 main）
 
-- 打卡月历的绿点目前记在**本地 storage**（后端暂无按月查询接口）。
-  后端未来加上 `GET /api/diet-log?from=&to=` 后，把 `utils/api.js` 的
-  `markCheckinDay/getCheckinDays` 改为从服务端拉取。
-- `/api/meal-analyze` 返回的 `credits` 字段前端暂未展示（以后做次数包时再用）。
+- ✅ 打卡月历的绿点已改为从服务端 `GET /api/diet-log?from=&to=` 拉取，
+  本地 storage 仅作离线兜底（换机不再丢历史绿点）。
+- `/api/meal-analyze` 返回的 `credits` 已接入 analyze 页顶部提示条（「今日还可分析 N 次」）。
 
 ## 合规
 

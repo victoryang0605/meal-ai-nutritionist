@@ -27,6 +27,14 @@ Page({
     submitting: false,
   },
 
+  onLoad() {
+    // 已经建过档的老用户不需要再走建档流程，直接回首页
+    if (api.hasSession() && api.getCachedProfile()) {
+      wx.switchTab({ url: '/pages/index/index' });
+      return;
+    }
+  },
+
   selectPersona(e) {
     this.setData({ persona: e.currentTarget.dataset.persona, step: 2 });
   },

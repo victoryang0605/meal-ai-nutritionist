@@ -1,0 +1,100 @@
+/* pages/login/login.wxss */
+.page {
+  min-height: 100vh;
+  background: #f7f8f7;
+  padding: 80rpx 40rpx 60rpx;
+  box-sizing: border-box;
+}
+
+.brand { text-align: center; margin-bottom: 64rpx; }
+.brand-logo { font-size: 88rpx; }
+.brand-name { font-size: 44rpx; font-weight: 700; margin-top: 16rpx; color: #2c2c2a; }
+.brand-slogan { font-size: 26rpx; color: #8a8f8a; margin-top: 8rpx; }
+
+.tip-card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 40rpx 32rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.04);
+}
+.tip-title { font-size: 30rpx; font-weight: 600; color: #2c2c2a; }
+.tip-desc {
+  font-size: 26rpx;
+  color: #8a8f8a;
+  line-height: 1.6;
+  margin-top: 10rpx;
+  margin-bottom: 28rpx;
+}
+
+.primary-btn {
+  background: #07c160;
+  color: #fff;
+  font-size: 32rpx;
+  font-weight: 500;
+  border-radius: 44rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  border: none;
+}
+.primary-btn::after { border: none; }
+.primary-btn:active { opacity: 0.85; }
+.primary-btn[disabled] { background: #9fdcbb; color: #fff; }
+
+.ghost-btn {
+  background: #fff;
+  color: #07c160;
+  font-size: 30rpx;
+  border: 2rpx solid #07c160;
+  border-radius: 44rpx;
+  height: 80rpx;
+  line-height: 76rpx;
+}
+.ghost-btn::after { border: none; }
+.ghost-btn:active { opacity: 0.7; }
+
+.divider {
+  height: 2rpx;
+  background: #f0f2ef;
+  margin: 40rpx 0 32rpx;
+}
+
+.switch-line {
+  text-align: center;
+  font-size: 26rpx;
+  color: #8a8f8a;
+  margin-top: 24rpx;
+  text-decoration: underline;
+}
+
+.agreement { margin-top: 40rpx; }
+.agree-row { display: flex; align-items: flex-start; }
+
+.checkbox {
+  width: 34rpx;
+  height: 34rpx;
+  min-width: 34rpx;
+  border: 2rpx solid #c9cec9;
+  border-radius: 6rpx;
+  margin-right: 14rpx;
+  margin-top: 2rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.checkbox.checked { background: #07c160; border-color: #07c160; }
+.check-mark { color: #fff; font-size: 24rpx; line-height: 1; }
+
+.agree-text { flex: 1; font-size: 26rpx; color: #5f5e5a; line-height: 1.6; }
+.link { color: #07c160; }
+
+.agree-note {
+  font-size: 22rpx;
+  color: #b0b5b0;
+  line-height: 1.6;
+  margin-top: 16rpx;
+  padding-left: 48rpx;
+}
+
+.loading-wrap { padding: 120rpx; text-align: center; }
+.loading-text { font-size: 26rpx; color: #8a8f8a; }

@@ -1,0 +1,60 @@
+<!-- pages/login/login.wxml -->
+<view class="page">
+
+  <!-- 顶部品牌区 -->
+  <view class="brand">
+    <view class="brand-logo">🥗</view>
+    <view class="brand-name">三餐有数</view>
+    <view class="brand-slogan">拍三餐 · 算热量 · 给建议</view>
+  </view>
+
+  <block wx:if="{{!checking}}">
+
+    <!-- 新用户：引导建档 -->
+    <block wx:if="{{!isReturning}}">
+      <view class="tip-card">
+        <view class="tip-title">第一次使用本小程序？</view>
+        <view class="tip-desc">先花 30 秒建个档，填一次身高体重就能算出你的每日热量目标，之后随时可在「我的」里修改。</view>
+        <button class="primary-btn" bindtap="goOnboarding">我要建档，开始使用</button>
+        <view class="divider"></view>
+        <view class="tip-title">已经建过档了？</view>
+        <view class="tip-desc">点击下方「微信一键登录」，用同一个微信号继续记录三餐。</view>
+        <button class="ghost-btn" bindtap="doLogin" disabled="{{logging}}">
+          微信一键登录
+        </button>
+      </view>
+    </block>
+
+    <!-- 老用户：一键登录 -->
+    <block wx:else>
+      <view class="tip-card">
+        <view class="tip-title">欢迎回来</view>
+        <view class="tip-desc">点击下方按钮，用微信一键登录，继续记录今天的三餐。</view>
+        <button class="primary-btn" bindtap="doLogin" disabled="{{logging}}">
+          {{logging ? '登录中...' : '微信一键登录'}}
+        </button>
+        <view class="switch-line" bindtap="goOnboarding">换个账号？重新建档</view>
+      </view>
+    </block>
+
+    <!-- 协议勾选（必须在登录/建档之前完成） -->
+    <view class="agreement">
+      <view class="agree-row" bindtap="toggleAgree">
+        <view class="checkbox {{agreed ? 'checked' : ''}}">
+          <text wx:if="{{agreed}}" class="check-mark">✓</text>
+        </view>
+        <view class="agree-text">
+          我已阅读并同意
+          <text class="link" catchtap="goAgreement">《用户协议》</text>和<text class="link" catchtap="goPrivacy">《隐私保护指引》</text>
+        </view>
+      </view>
+      <view class="agree-note">我们仅收集完成分析所需的昵称、头像与身体数据；餐食照片只在识别时临时使用、分析完即丢弃，不会保存。AI 估算结果仅供参考，不构成医疗建议。</view>
+    </view>
+
+  </block>
+
+  <view class="loading-wrap" wx:else>
+    <text class="loading-text">加载中...</text>
+  </view>
+
+</view>

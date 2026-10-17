@@ -16,8 +16,15 @@ Page({
   },
 
   async load() {
+    if (!api.hasSession()) {
+      wx.reLaunch({ url: '/pages/login/login' });
+      return;
+    }
     const okLogin = await api.ensureLogin();
-    if (!okLogin) return;
+    if (!okLogin) {
+      wx.reLaunch({ url: '/pages/login/login' });
+      return;
+    }
     const points = await api.getWeightCurve(30);
     const lastWeight = points.length ? points[points.length - 1].weightKg : null;
     this.setData({ points, lastWeight, hasData: points.length > 0, feedback: '' });
