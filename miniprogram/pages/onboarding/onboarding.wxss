@@ -55,7 +55,10 @@
 .avatar-img { width: 140rpx; height: 140rpx; border-radius: 50%; }
 .avatar-placeholder {
   width: 140rpx; height: 140rpx; border-radius: 50%;
-  background: #eef2ee; font-size: 64rpx; line-height: 140rpx; text-align: center;
+  background: #eef2ee; font-size: 64rpx;
+  /* flex 居中替代 line-height 等高定位，避免 emoji 视觉偏上 */
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
 }
 .nick-input { text-align: left; margin-top: 8rpx; }
 .link-inline { color: #07c160; }

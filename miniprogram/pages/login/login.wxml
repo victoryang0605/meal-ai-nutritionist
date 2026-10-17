@@ -15,13 +15,11 @@
       <view class="tip-card">
         <view class="tip-title">第一次使用本小程序？</view>
         <view class="tip-desc">先花 30 秒建个档，填一次身高体重就能算出你的每日热量目标，之后随时可在「我的」里修改。</view>
-        <button class="primary-btn" bindtap="goOnboarding">我要建档，开始使用</button>
+        <button class="primary-btn" bindtap="goOnboarding"><text class="btn-label">我要建档，开始使用</text></button>
         <view class="divider"></view>
         <view class="tip-title">已经建过档了？</view>
         <view class="tip-desc">点击下方「微信一键登录」，用同一个微信号继续记录三餐。</view>
-        <button class="ghost-btn" bindtap="doLogin" disabled="{{logging}}">
-          微信一键登录
-        </button>
+        <button class="ghost-btn" bindtap="doLogin" disabled="{{logging}}"><text class="btn-label">微信一键登录</text></button>
       </view>
     </block>
 
@@ -30,9 +28,7 @@
       <view class="tip-card">
         <view class="tip-title">欢迎回来</view>
         <view class="tip-desc">点击下方按钮，用微信一键登录，继续记录今天的三餐。</view>
-        <button class="primary-btn" bindtap="doLogin" disabled="{{logging}}">
-          {{logging ? '登录中...' : '微信一键登录'}}
-        </button>
+        <button class="primary-btn" bindtap="doLogin" disabled="{{logging}}"><text class="btn-label">{{logging ? '登录中...' : '微信一键登录'}}</text></button>
         <view class="switch-line" bindtap="goOnboarding">换个账号？重新建档</view>
       </view>
     </block>
