@@ -54,7 +54,9 @@ Page({
         remaining: r.remaining,          // 剩余可分析次数（P1-3）
         remainingText: r.remainingText,
       });
-      this.drawScoreRing(r.analysis.mealScore);
+      // ⚠️ canvas 在 wx:if 内，需等节点完成布局再取尺寸，
+      // 否则 r.width/r.height 为未布局值，评分环会画错位置
+      wx.nextTick(() => this.drawScoreRing(r.analysis.mealScore));
     } else if (r.dailyLimitReached) {
       // 今日已达每日上限（默认 10 次），次日重置
       this.setData({
@@ -84,9 +86,14 @@ Page({
     query.select('#scoreRing').fields({ node: true, size: true }).exec((res) => {
       const r = res && res[0];
       if (!r || !r.node) return;
+      // 节点未完成布局时宽高为 0，跳过绘制，避免画到错误位置
+      if (!r.width || !r.height) {
+        console.warn('[analyze] scoreRing 未完成布局，跳过绘制');
+        return;
+      }
       const canvas = r.node;
       const dpr = wx.getSystemInfoSync().pixelRatio || 2;
-      const size = r.width || 160;
+      const size = r.width;
       canvas.width = size * dpr;
       canvas.height = size * dpr;
       const ctx = canvas.getContext('2d');

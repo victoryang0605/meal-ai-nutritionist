@@ -12,8 +12,12 @@ Page({
   },
 
   onShow() {
+    this._alive = true;
     this.load();
   },
+
+  onHide() { this._alive = false; },
+  onUnload() { this._alive = false; },
 
   async load() {
     if (!api.hasSession()) {
@@ -28,7 +32,11 @@ Page({
     const points = await api.getWeightCurve(30);
     const lastWeight = points.length ? points[points.length - 1].weightKg : null;
     this.setData({ points, lastWeight, hasData: points.length > 0, feedback: '' });
-    if (points.length > 1) this.drawCurve();
+    // ⚠️ canvas 位于 wx:if="{{hasData}}" 内，必须等 setData 让节点完成布局后再取尺寸，
+    // 否则 r.width/r.height 是未布局值，折线会画到卡片外（真机复现过的回归）。
+    if (points.length > 1) {
+      wx.nextTick(() => { if (this._alive) this.drawCurve(0); });
+    }
   },
 
   onInput(e) {
@@ -73,20 +81,28 @@ Page({
   },
 
   // canvas 画 30 天折线
-  drawCurve() {
+  // attempt 为重试次数：nextTick 后仍可能未完成布局，最多再试 3 次
+  drawCurve(attempt = 0) {
     const points = this.data.points;
-    if (points.length < 2) return;
+    if (points.length < 2 || !this._alive) return;
     const query = wx.createSelectorQuery().in(this);
     query.select('#weightCurve').fields({ node: true, size: true }).exec((res) => {
       const r = res && res[0];
       if (!r || !r.node) return;
+      // 节点未完成布局时宽高为 0，此时绘制会把内容画到错误位置
+      if (!r.width || !r.height) {
+        if (attempt < 3) setTimeout(() => this.drawCurve(attempt + 1), 60);
+        else console.warn('[weight] canvas 反复重试仍无尺寸，放弃绘制');
+        return;
+      }
       const canvas = r.node;
       const dpr = wx.getSystemInfoSync().pixelRatio || 2;
-      const W = r.width || 680, H = r.height || 320;
+      const W = r.width, H = r.height;
       canvas.width = W * dpr;
       canvas.height = H * dpr;
       const ctx = canvas.getContext('2d');
       ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, W, H);
 
       const weights = points.map((p) => p.weightKg);
       let min = Math.min.apply(null, weights), max = Math.max.apply(null, weights);
