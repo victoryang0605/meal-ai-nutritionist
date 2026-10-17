@@ -322,7 +322,7 @@ export async function getUser(openid: string) {
 // ============================================================
 
 /** 获取今日使用次数 */
-async function getTodayUsageCount(openid: string): Promise<number> {
+export async function getTodayUsageCount(openid: string): Promise<number> {
   const [rows] = await getPool().execute(
     `SELECT COUNT(*) as cnt FROM usage_logs
      WHERE openid = ? AND DATE(FROM_UNIXTIME(created_at/1000)) = CURDATE()`,
@@ -331,10 +331,32 @@ async function getTodayUsageCount(openid: string): Promise<number> {
   return rows[0].cnt;
 }
 
+/**
+ * 每日调用上限（默认 10 次/天）
+ *
+ * 背景（2026-10-17）：AI 接口有每日调用成本约束，产品侧约定
+ * 每个用户每天最多拍摄分析 10 次。与「终身免费额度 free_limit」
+ * 是两套独立限制：
+ *   · dailyLimit —— 按天重置，控当日调用成本
+ *   · freeLimit  —— 终身累计，控总成本
+ * 两项任一触发都会拒绝，reason 字段用于前端区分提示文案。
+ */
+export function dailyLimit(): number {
+  const n = Number(process.env.DAILY_ANALYZE_LIMIT || 10);
+  return Number.isInteger(n) && n > 0 ? n : 10;
+}
+
 /** 计算用户额度（返回给前端） */
 export async function calcCredits(openid: string) {
   const user = await getUser(openid);
-  if (!user) return { isLoggedIn: false, freeLimit: 50, freeUsed: 0, freeRemaining: 50, paidCredits: 0, totalRemaining: 50, isPaidUser: false, todayUsed: 0 };
+  const dLimit = dailyLimit();
+  if (!user) {
+    return {
+      isLoggedIn: false, freeLimit: 50, freeUsed: 0, freeRemaining: 50,
+      paidCredits: 0, totalRemaining: 50, isPaidUser: false,
+      todayUsed: 0, todayRemaining: dLimit, dailyLimit: dLimit,
+    };
+  }
 
   const freeRemaining = Math.max(0, user.free_limit - user.free_used);
   const paidCredits = user.paid_credits || 0;
@@ -349,13 +371,15 @@ export async function calcCredits(openid: string) {
     paidCredits,
     totalRemaining: freeRemaining + paidCredits,
     todayUsed: todayCount,
+    dailyLimit: dLimit,
+    todayRemaining: Math.max(0, dLimit - todayCount),
   };
 }
 
 /** 消耗一次额度（先终身免费、后付费）- 必须已登录 */
 export async function consumeCredit(openid: string): Promise<{ ok: boolean; reason?: string; credits?: any }> {
   const user = await getUser(openid);
-  if (!user) return { ok: false, reason: 'not_logged_in', credits: { isLoggedIn: false, freeLimit: 50, freeUsed: 0, freeRemaining: 50, paidCredits: 0, totalRemaining: 50, isPaidUser: false, todayUsed: 0 } };
+  if (!user) return { ok: false, reason: 'not_logged_in', credits: await calcCredits(openid) };
 
   const freeRemaining = Math.max(0, user.free_limit - user.free_used);
   const now = Date.now();

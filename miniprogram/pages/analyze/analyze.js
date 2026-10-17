@@ -7,6 +7,7 @@ Page({
   data: {
     loading: true,
     error: '',
+    errTip: '',
     analysis: null,   // mapAnalysis 结果
     medSafetyHit: false,
     mealType: 'lunch',
@@ -54,10 +55,24 @@ Page({
         remainingText: r.remainingText,
       });
       this.drawScoreRing(r.analysis.mealScore);
+    } else if (r.dailyLimitReached) {
+      // 今日已达每日上限（默认 10 次），次日重置
+      this.setData({
+        loading: false,
+        error: '今天的分析次数已用完',
+        errTip: 'AI 分析每天最多 10 次，请明天再来记录三餐。',
+      });
+    } else if (r.quotaExhausted) {
+      // 终身免费额度用完 —— 不是「今天用完」，提示不能误导用户等明天
+      this.setData({
+        loading: false,
+        error: '免费分析次数已用完',
+        errTip: '你的免费分析额度已全部使用完毕。',
+      });
     } else {
       this.setData({
         loading: false,
-        error: r.quotaExhausted ? '今日分析次数已用完，明天再来吧' : (r.error || '分析失败'),
+        error: r.error || '分析失败',
       });
     }
   },

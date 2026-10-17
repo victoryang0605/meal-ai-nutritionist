@@ -16,7 +16,9 @@
  */
 .input-row {
   position: relative;
-  margin: 12rpx 0;
+  /* 与下方 .btn-plain / .btn-primary 的 margin 保持一致（24rpx），
+     否则输入框会比两个按钮宽出一截，视觉不对齐 */
+  margin: 12rpx 24rpx;
 }
 .weight-input {
   width: 100%;

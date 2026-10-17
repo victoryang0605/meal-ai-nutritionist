@@ -11,6 +11,7 @@ const API_BASE = 'https://api.cooperelate.com';
 const TOKEN_KEY = 'meal_token';
 const PROFILE_KEY = 'meal_profile_cache';
 const CHECKIN_DAYS_KEY = 'meal_checkin_days'; // 本地打卡日期（YYYY-MM-DD 数组）
+const CREDITS_KEY = 'meal_credits';           // 最近一次后端返回的额度快照
 
 // 每日打卡提醒订阅消息模板 ID。
 // 订阅消息模板 ID（Victor 已在小程序后台申请到「打卡提醒」类模板）。
@@ -222,29 +223,48 @@ return null;
 }
 
 // 餐食分析（只分析不落库）
+//
+// 402 有两种含义，reason 字段区分：
+//   daily_limit_reached → 今日已达每日上限（默认 10 次），次日重置
+//   quota_exhausted     → 终身免费额度用完
+// 两者都是 402，但文案必须不同，否则用户会误以为要等第二天。
 async function mealAnalyze({ imageDataUri, persona}) {
-const r = await request('/api/meal-analyze', {
-method: 'POST',
-data: { image: imageDataUri, persona: persona || 'takeout'}
-});
-if (r.ok && r.data && r.data.analysis) {
-    // credits 由后端 consumeCredit 返回，含 totalRemaining / freeRemaining / paidCredits
+  const r = await request('/api/meal-analyze', {
+    method: 'POST',
+    data: { image: imageDataUri, persona: persona || 'takeout'}
+  });
+  if (r.ok && r.data && r.data.analysis) {
+    // credits 由后端 consumeCredit 返回，含 todayRemaining / dailyLimit 等
     const c = r.data.credits || null;
     const remaining = c && typeof c.totalRemaining === 'number' ? c.totalRemaining : null;
+    const todayRemaining = c && typeof c.todayRemaining === 'number' ? c.todayRemaining : null;
+    const dailyLimit = c && typeof c.dailyLimit === 'number' ? c.dailyLimit : 10;
+    cacheCredits(c); // 供首页展示当日剩余次数
     return {
       ok: true,
       analysis: mapAnalysis(r.data.analysis),
       medSafetyHit: !!r.data.med_safety_hit,
       remaining,
       credits: c,
-      remainingText: remaining === null ? '' : ('今日还可分析 ' + remaining + ' 次'),
+      todayRemaining,
+      dailyLimit,
+      remainingText: todayRemaining === null
+        ? ''
+        : ('今日还可分析 ' + todayRemaining + '/' + dailyLimit + ' 次'),
     };
   }
-return {
-ok: false, status: r.status,
-error: (r.data && r.data.error) || '分析失败，请重试',
-quotaExhausted: r.status === 402,
-};
+
+  const isDailyLimit = r.status === 402 && r.data && r.data.error === 'daily_limit_reached';
+  const isQuota = r.status === 402 && r.data && r.data.error === 'quota_exhausted';
+  return {
+    ok: false,
+    status: r.status,
+    error: (r.data && (r.data.reason || r.data.error)) || '分析失败，请重试',
+    quotaExhausted: isQuota || r.status === 402,
+    dailyLimitReached: isDailyLimit,
+    todayRemaining: r.data && typeof r.data.credits?.todayRemaining === 'number'
+      ? r.data.credits.todayRemaining : null,
+  };
 }
 
 // 确认记录（落库）。早/午/晚餐多次记录会自动替换当日同餐位记录（后端实现），
@@ -406,6 +426,32 @@ cur.setDate(cur.getDate() - 1);
 return streak;
 }
 
+/** 缓存最近一次后端返回的额度（首页展示当日剩余次数用） */
+function cacheCredits(credits) {
+  if (!credits) return;
+  try {
+    credits.cachedAt = Date.now();
+    wx.setStorageSync(CREDITS_KEY, credits);
+  } catch (_) { /* ignore */ }
+}
+
+/** 读缓存的额度；跨天则视为失效（每日次数按天重置） */
+function getCachedCredits() {
+  try {
+    const c = wx.getStorageSync(CREDITS_KEY);
+    if (!c || !c.cachedAt) return {};
+    // 缓存的是哪一天的数据？用日期比对，跨天直接失效
+    const d = new Date(c.cachedAt);
+    const today = new Date();
+    if (d.getFullYear() !== today.getFullYear()
+      || d.getMonth() !== today.getMonth()
+      || d.getDate() !== today.getDate()) {
+      return {};
+    }
+    return c;
+  } catch (_) { return {}; }
+}
+
 function todayStr() {
 const n = new Date();
 return n.getFullYear() + '-' +
@@ -431,6 +477,8 @@ getCheckinDaysFromServer: fetchCheckinDays,
 cacheCheckinDays,
 getCachedProfile,
 hasSession,
+cacheCredits,
+getCachedCredits,
 subscribeReminder,
 isReminderOn,
 saveWeight,

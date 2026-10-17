@@ -32,6 +32,7 @@
     <view class="shoot-text">拍三餐</view>
     <view class="shoot-sub">拍照识菜品 · 算热量 · 给建议</view>
   </view>
+  <view class="quota-tip" wx:if="{{quotaText}}">{{quotaText}}</view>
 
   <!-- 今日三餐 · 四宫格（2×2） -->
   <view class="section-title">今日三餐</view>

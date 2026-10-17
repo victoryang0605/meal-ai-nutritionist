@@ -12,6 +12,7 @@
   <view class="card" wx:if="{{!loading && error}}">
     <view class="card-title">分析失败了</view>
     <view class="text-secondary">{{error}}</view>
+    <view class="text-hint" wx:if="{{errTip}}">{{errTip}}</view>
     <view class="btn-plain" bindtap="retry">重新拍摄</view>
   </view>
 

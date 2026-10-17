@@ -615,7 +615,19 @@ async function startServer() {
       if (!image) return res.status(400).json({ error: '缺少 image（data URI / Base64 / 图片 URL）' });
 
       // 额度校验（安全基线：消耗 AI 配额的接口必须校验额度）
+      //
+      // 两套独立限制，任一触发即拒绝，用 reason 区分供前端给不同文案：
+      //   1) daily_limit_reached —— 今日调用已达上限（默认 10 次/天，按天重置）
+      //   2) quota_exhausted     —— 终身免费额度耗尽（free_limit 默认 50 次）
+      // 顺序上先判每日上限：这是产品主约束，提示更明确。
       const before = await DB.calcCredits(openid);
+      if (!before.todayRemaining) {
+        return res.status(402).json({
+          error: 'daily_limit_reached',
+          reason: `每日最多分析 ${before.dailyLimit} 次，请明日继续`,
+          credits: before,
+        });
+      }
       if (!before.totalRemaining) {
         return res.status(402).json({ error: 'quota_exhausted', credits: before });
       }
@@ -650,10 +662,16 @@ async function startServer() {
         console.warn(`[med-safety] user=${openid.slice(0, 8)} persona=${persona} 命中用药行为词表，已截断 suggestion`);
       }
 
-      // 分析成功后消耗一次额度
+      // 分析成功后消耗一次额度（concurrent 场景下的兜底：并发请求可能已超每日上限）
       const consume = await DB.consumeCredit(openid);
       if (!consume.ok) {
-        return res.status(402).json({ error: 'quota_exhausted', credits: consume.credits });
+        return res.status(402).json({
+          error: consume.reason === 'quota_exhausted' ? 'quota_exhausted' : 'daily_limit_reached',
+          reason: consume.reason === 'quota_exhausted'
+            ? '免费额度已用完'
+            : `每日最多分析 ${DB.dailyLimit()} 次，请明日继续`,
+          credits: consume.credits,
+        });
       }
 
       res.json({ analysis, med_safety_hit, credits: consume.credits });

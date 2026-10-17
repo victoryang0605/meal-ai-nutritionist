@@ -9,13 +9,27 @@ const MEALS = [
   { type: 'snack',     name: '加餐', emoji: '🍎' },
 ];
 
+/**
+ * 按当前时间推断默认餐次（2026-10-17 产品规则）
+ *
+ *   00:00 - 09:59  早餐
+ *   10:00 - 13:59  午餐
+ *   14:00 - 18:59  晚餐
+ *   19:00 - 23:59  加餐
+ *
+ * 只决定「点拍照按钮后默认选哪个餐次」，用户仍可在 analyze 页手动改。
+ */
 function defaultMealType() {
   const h = new Date().getHours();
   if (h < 10) return 'breakfast';
   if (h < 14) return 'lunch';
-  if (h < 21) return 'dinner';
+  if (h < 19) return 'dinner';
   return 'snack';
 }
+
+const MEAL_NAMES = {
+  breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '加餐',
+};
 
 Page({
   data: {
@@ -35,12 +49,20 @@ Page({
 
   onShow() {
     this.load();
-    // 从餐位历史页"记录这一餐"跳过来：直接打开该餐位的拍照
+    // 从餐位历史页"记录这一餐"跳过来：走 startShoot 以保持覆盖确认一致
     const app = getApp();
     if (app.globalData.pendingMealType) {
       const mt = app.globalData.pendingMealType;
       app.globalData.pendingMealType = null;
-      setTimeout(() => this.openShootSheet(mt), 600);
+      // 等 load() 把 meals 填完，否则 findMeal 拿不到已有记录
+      this._pendingShoot = mt;
+      setTimeout(() => {
+        if (this._pendingShoot) {
+          const t = this._pendingShoot;
+          this._pendingShoot = null;
+          this.startShoot(t);
+        }
+      }, 800);
     }
   },
 
@@ -112,34 +134,105 @@ Page({
       });
     }
 
+    // 当日剩余分析次数（credits 在 analyze 成功时回传，这里用本地缓存的初值）
+    const credits = api.getCachedCredits();
+    const dailyLimit = credits.dailyLimit || 10;
+    const todayRemaining = credits.todayRemaining == null ? null : credits.todayRemaining;
+
     this.setData({
       profile, isGlycemic,
       intakeLow, intakeHigh, targetLow, targetHigh,
       progressPct, budgetText,
       overLimit: !!(targetHigh && intakeHigh >= targetHigh),
       meals, topRisk,
+      dailyLimit,
+      todayRemaining,
+      quotaText: todayRemaining === null ? '' : ('今日还可分析 ' + todayRemaining + ' / ' + dailyLimit + ' 次'),
       loading: false,
     });
   },
 
-  // 拍三餐：先选餐次（默认按时间），再选图
+  // 拍三餐：先检查该餐位是否已记录 → 两级确认 → 选图
   takePhoto() {
-    this.openShootSheet(defaultMealType());
+    this.startShoot(defaultMealType());
   },
 
-  openShootSheet(mealType) {
-    const that = this;
-    wx.showActionSheet({
-      itemList: ['拍照', '从相册选择'],
-      success(res) {
-        that.chooseImage(res.tapIndex === 0 ? 'camera' : 'album', mealType);
-      }
+  // 时间线卡片点击：指定餐位拍照
+  tapMeal(e) {
+    this.startShoot(e.currentTarget.dataset.type);
+  },
+
+  /**
+   * 拍照前检查（2026-10-17 产品规则）
+   *
+   * 当日同一餐位重复拍摄的交互流程：
+   *   1. 提示「已记录过X，是否继续」—— 用户取消即中止
+   *   2. 用户选择继续后，再提示「本次将覆盖上一次记录」—— 确认才继续
+   * 两次弹窗都必须用户主动确认，任一步取消都不消耗额度、不选图。
+   *
+   * 加餐（snack）后端允许多条记录，因此不触发覆盖流程。
+   */
+  async startShoot(mealType) {
+    const name = MEAL_NAMES[mealType] || '这一餐';
+
+    // 加餐可多次记录，跳过确认流程
+    if (mealType === 'snack') {
+      this.openShootSheet(mealType);
+      return;
+    }
+
+    const existing = this.findMeal(mealType);
+    if (!existing) {
+      this.openShootSheet(mealType);
+      return;
+    }
+
+    // 第一级：是否继续
+    const c1 = await this.confirm({
+      title: `${name}已经记录过了`,
+      content: existing.firstDish
+        ? `上次记录的是「${existing.firstDish}」，要重新拍一次吗？`
+        : '今天已经记录过这一餐了，要重新拍一次吗？',
+      confirmText: '重新记录',
+      cancelText: '不用了',
+    });
+    if (!c1) return;
+
+    // 第二级：确认覆盖
+    const c2 = await this.confirm({
+      title: '将覆盖上一次记录',
+      content: `继续后，今天的${name}记录会替换掉之前那条（之前的记录无法恢复）。`,
+      confirmText: '确认覆盖',
+      cancelText: '再想想',
+    });
+    if (!c2) return;
+
+    this.openShootSheet(mealType);
+  },
+
+  // Promise 化的 wx.showModal，便于串行 await
+  confirm({ title, content, confirmText, cancelText }) {
+    return new Promise((resolve) => {
+      wx.showModal({
+        title, content, confirmText, cancelText,
+        success: (r) => resolve(!!r.confirm),
+        fail: () => resolve(false),
+      });
     });
   },
 
-  // 时间线卡片点击：直接进入该餐次的拍照
-  tapMeal(e) {
-    this.openShootSheet(e.currentTarget.dataset.type);
+  // 从当前 meals 中找指定餐位的记录
+  findMeal(mealType) {
+    return (this.data.meals || []).find((m) => m.type === mealType && m.logged) || null;
+  },
+
+  openShootSheet(mealType) {
+    wx.showActionSheet({
+      itemList: ['拍照', '从相册选择'],
+      success: (res) => {
+        this.chooseImage(res.tapIndex === 0 ? 'camera' : 'album', mealType);
+      }
+    });
   },
 
   async chooseImage(sourceType, mealType) {
