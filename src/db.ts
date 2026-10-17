@@ -780,7 +780,7 @@ export async function insertDietLog(userId: string, input: DietLogInput): Promis
         kcal_low, kcal_high, protein_low, protein_high, carb_low, carb_high,
         fat_low, fat_high, fiber_low, fiber_high, meal_score, suggestion, glycemic_risk,
         highlights_json, warnings_json, gi_notes, meal_order_tip, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       userId, input.log_date, input.meal_type, '', input.persona,
       JSON.stringify(input.dishes || []),
